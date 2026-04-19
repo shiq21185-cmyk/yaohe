@@ -1,0 +1,53 @@
+.\objects\bt04a.o: Hardware\bt04a.c
+.\objects\bt04a.o: Hardware\bt04a.h
+.\objects\bt04a.o: .\Start\stm32f10x.h
+.\objects\bt04a.o: .\Start\core_cm3.h
+.\objects\bt04a.o: D:\Keil5 stm32\ARM\ARMCC\Bin\..\include\stdint.h
+.\objects\bt04a.o: .\Start\system_stm32f10x.h
+.\objects\bt04a.o: .\User\stm32f10x_conf.h
+.\objects\bt04a.o: .\Library\stm32f10x_adc.h
+.\objects\bt04a.o: .\Start\stm32f10x.h
+.\objects\bt04a.o: .\Library\stm32f10x_bkp.h
+.\objects\bt04a.o: .\Library\stm32f10x_can.h
+.\objects\bt04a.o: .\Library\stm32f10x_cec.h
+.\objects\bt04a.o: .\Library\stm32f10x_crc.h
+.\objects\bt04a.o: .\Library\stm32f10x_dac.h
+.\objects\bt04a.o: .\Library\stm32f10x_dbgmcu.h
+.\objects\bt04a.o: .\Library\stm32f10x_dma.h
+.\objects\bt04a.o: .\Library\stm32f10x_exti.h
+.\objects\bt04a.o: .\Library\stm32f10x_flash.h
+.\objects\bt04a.o: .\Library\stm32f10x_fsmc.h
+.\objects\bt04a.o: .\Library\stm32f10x_gpio.h
+.\objects\bt04a.o: .\Library\stm32f10x_i2c.h
+.\objects\bt04a.o: .\Library\stm32f10x_iwdg.h
+.\objects\bt04a.o: .\Library\stm32f10x_pwr.h
+.\objects\bt04a.o: .\Library\stm32f10x_rcc.h
+.\objects\bt04a.o: .\Library\stm32f10x_rtc.h
+.\objects\bt04a.o: .\Library\stm32f10x_sdio.h
+.\objects\bt04a.o: .\Library\stm32f10x_spi.h
+.\objects\bt04a.o: .\Library\stm32f10x_tim.h
+.\objects\bt04a.o: .\Library\stm32f10x_usart.h
+.\objects\bt04a.o: .\Library\stm32f10x_wwdg.h
+.\objects\bt04a.o: .\Library\misc.h
+.\objects\bt04a.o: Hardware\usart.h
+.\objects\bt04a.o: .\FreeRTOS\include\FreeRTOS.h
+.\objects\bt04a.o: D:\Keil5 stm32\ARM\ARMCC\Bin\..\include\stddef.h
+.\objects\bt04a.o: .\User\FreeRTOSConfig.h
+.\objects\bt04a.o: .\FreeRTOS\include\projdefs.h
+.\objects\bt04a.o: .\FreeRTOS\include\portable.h
+.\objects\bt04a.o: .\FreeRTOS\include\deprecated_definitions.h
+.\objects\bt04a.o: .\FreeRTOS\port\RVDS\ARM_CM3\portmacro.h
+.\objects\bt04a.o: .\FreeRTOS\include\mpu_wrappers.h
+.\objects\bt04a.o: .\FreeRTOS\include\task.h
+.\objects\bt04a.o: .\FreeRTOS\include\list.h
+.\objects\bt04a.o: .\FreeRTOS\include\semphr.h
+.\objects\bt04a.o: .\FreeRTOS\include\queue.h
+.\objects\bt04a.o: D:\Keil5 stm32\ARM\ARMCC\Bin\..\include\string.h
+.\objects\bt04a.o: D:\Keil5 stm32\ARM\ARMCC\Bin\..\include\stdio.h
+.\objects\bt04a.o: .\User\app_tasks.h
+.\objects\bt04a.o: .\Hardware\OLED.h
+.\objects\bt04a.o: .\Hardware\hx711.h
+.\objects\bt04a.o: .\Hardware\dht11.h
+.\objects\bt04a.o: .\Hardware\esp8266.h
+.\objects\bt04a.o: .\Hardware\xrvoice.h
+.\objects\bt04a.o: .\Hardware\key.h

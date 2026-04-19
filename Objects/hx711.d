@@ -1,0 +1,33 @@
+.\objects\hx711.o: Hardware\hx711.c
+.\objects\hx711.o: .\Start\stm32f10x.h
+.\objects\hx711.o: .\Start\core_cm3.h
+.\objects\hx711.o: D:\Keil5 stm32\ARM\ARMCC\Bin\..\include\stdint.h
+.\objects\hx711.o: .\Start\system_stm32f10x.h
+.\objects\hx711.o: .\User\stm32f10x_conf.h
+.\objects\hx711.o: .\Library\stm32f10x_adc.h
+.\objects\hx711.o: .\Start\stm32f10x.h
+.\objects\hx711.o: .\Library\stm32f10x_bkp.h
+.\objects\hx711.o: .\Library\stm32f10x_can.h
+.\objects\hx711.o: .\Library\stm32f10x_cec.h
+.\objects\hx711.o: .\Library\stm32f10x_crc.h
+.\objects\hx711.o: .\Library\stm32f10x_dac.h
+.\objects\hx711.o: .\Library\stm32f10x_dbgmcu.h
+.\objects\hx711.o: .\Library\stm32f10x_dma.h
+.\objects\hx711.o: .\Library\stm32f10x_exti.h
+.\objects\hx711.o: .\Library\stm32f10x_flash.h
+.\objects\hx711.o: .\Library\stm32f10x_fsmc.h
+.\objects\hx711.o: .\Library\stm32f10x_gpio.h
+.\objects\hx711.o: .\Library\stm32f10x_i2c.h
+.\objects\hx711.o: .\Library\stm32f10x_iwdg.h
+.\objects\hx711.o: .\Library\stm32f10x_pwr.h
+.\objects\hx711.o: .\Library\stm32f10x_rcc.h
+.\objects\hx711.o: .\Library\stm32f10x_rtc.h
+.\objects\hx711.o: .\Library\stm32f10x_sdio.h
+.\objects\hx711.o: .\Library\stm32f10x_spi.h
+.\objects\hx711.o: .\Library\stm32f10x_tim.h
+.\objects\hx711.o: .\Library\stm32f10x_usart.h
+.\objects\hx711.o: .\Library\stm32f10x_wwdg.h
+.\objects\hx711.o: .\Library\misc.h
+.\objects\hx711.o: Hardware\hx711.h
+.\objects\hx711.o: D:\Keil5 stm32\ARM\ARMCC\Bin\..\include\stdlib.h
+.\objects\hx711.o: .\Systerm\Delay.h

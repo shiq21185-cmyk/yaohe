@@ -1,0 +1,285 @@
+version: "4.1"
+name: Poject
+type: ARM
+deviceName: STM32F103C8
+packDir: .pack/Keil/STM32F1xx_DFP.2.3.0
+srcDirs: []
+virtualFolder:
+  name: <virtual_root>
+  files: []
+  folders:
+    - name: Start
+      files:
+        - path: Start/startup_stm32f10x_md.s
+        - path: Start/core_cm3.c
+        - path: Start/core_cm3.h
+        - path: Start/stm32f10x.h
+        - path: Start/system_stm32f10x.c
+        - path: Start/system_stm32f10x.h
+      folders: []
+    - name: Library
+      files:
+        - path: Library/misc.c
+        - path: Library/misc.h
+        - path: Library/stm32f10x_adc.c
+        - path: Library/stm32f10x_adc.h
+        - path: Library/stm32f10x_bkp.c
+        - path: Library/stm32f10x_bkp.h
+        - path: Library/stm32f10x_can.c
+        - path: Library/stm32f10x_can.h
+        - path: Library/stm32f10x_cec.c
+        - path: Library/stm32f10x_cec.h
+        - path: Library/stm32f10x_crc.c
+        - path: Library/stm32f10x_crc.h
+        - path: Library/stm32f10x_dac.c
+        - path: Library/stm32f10x_dac.h
+        - path: Library/stm32f10x_dbgmcu.c
+        - path: Library/stm32f10x_dbgmcu.h
+        - path: Library/stm32f10x_dma.c
+        - path: Library/stm32f10x_dma.h
+        - path: Library/stm32f10x_exti.c
+        - path: Library/stm32f10x_exti.h
+        - path: Library/stm32f10x_flash.c
+        - path: Library/stm32f10x_flash.h
+        - path: Library/stm32f10x_fsmc.c
+        - path: Library/stm32f10x_fsmc.h
+        - path: Library/stm32f10x_gpio.c
+        - path: Library/stm32f10x_gpio.h
+        - path: Library/stm32f10x_i2c.c
+        - path: Library/stm32f10x_i2c.h
+        - path: Library/stm32f10x_iwdg.c
+        - path: Library/stm32f10x_iwdg.h
+        - path: Library/stm32f10x_pwr.c
+        - path: Library/stm32f10x_pwr.h
+        - path: Library/stm32f10x_rcc.c
+        - path: Library/stm32f10x_rcc.h
+        - path: Library/stm32f10x_rtc.c
+        - path: Library/stm32f10x_rtc.h
+        - path: Library/stm32f10x_sdio.c
+        - path: Library/stm32f10x_sdio.h
+        - path: Library/stm32f10x_spi.c
+        - path: Library/stm32f10x_spi.h
+        - path: Library/stm32f10x_tim.c
+        - path: Library/stm32f10x_tim.h
+        - path: Library/stm32f10x_usart.c
+        - path: Library/stm32f10x_usart.h
+        - path: Library/stm32f10x_wwdg.c
+        - path: Library/stm32f10x_wwdg.h
+      folders: []
+    - name: Systerm
+      files:
+        - path: Systerm/Delay.c
+        - path: Systerm/Delay.h
+        - path: Systerm/Timer.c
+        - path: Systerm/Timer.h
+        - path: Systerm/sys.c
+        - path: Systerm/sys.h
+        - path: Systerm/Servo.c
+        - path: Systerm/Servo.h
+      folders: []
+    - name: Hardware
+      files:
+        - path: Hardware/LED.c
+        - path: Hardware/LED.h
+        - path: Hardware/OLED.c
+        - path: Hardware/OLED.h
+        - path: Hardware/OLED_Font.h
+        - path: Hardware/esp8266.c
+        - path: Hardware/esp8266.h
+        - path: Hardware/usart.c
+        - path: Hardware/usart.h
+        - path: Hardware/DHT11.c
+        - path: Hardware/DHT11.h
+        - path: Hardware/hx711.c
+        - path: Hardware/hx711.h
+        - path: Hardware/key.c
+        - path: Hardware/key.h
+        - path: Hardware/light.c
+        - path: Hardware/light.h
+        - path: Hardware/PWM.c
+        - path: Hardware/PWM.h
+        - path: Hardware/xrvoice.c
+        - path: Hardware/xrvoice.h
+        - path: Hardware/hc06.c
+        - path: Hardware/hc06.h
+      folders: []
+    - name: User
+      files:
+        - path: User/main.c
+        - path: User/stm32f10x_conf.h
+        - path: User/stm32f10x_it.c
+        - path: User/stm32f10x_it.h
+        - path: User/FreeRTOSConfig.h
+        - path: User/app_tasks.c
+        - path: User/app_tasks.h
+        - path: User/voice_command_handler.c
+        - path: User/voice_command_handler.h
+      folders: []
+    - name: FreeRTOS
+      files: []
+      folders:
+        - name: src
+          files:
+            - path: FreeRTOS/src/croutine.c
+            - path: FreeRTOS/src/event_groups.c
+            - path: FreeRTOS/src/list.c
+            - path: FreeRTOS/src/queue.c
+            - path: FreeRTOS/src/tasks.c
+            - path: FreeRTOS/src/timers.c
+          folders: []
+        - name: port
+          files:
+            - path: FreeRTOS/port/MemMang/heap_4.c
+            - path: FreeRTOS/port/RVDS/ARM_CM3/port.c
+          folders: []
+dependenceList: []
+outDir: build
+miscInfo:
+  uid: 6c7a45da2fac277eaae9cdfb57c5ce0c
+targets:
+  Target 1:
+    cppPreprocessAttrs:
+      defineList:
+        - USE_STDPERIPH_DRIVER
+      incList:
+        - .
+        - Start
+        - User
+        - Library
+        - Systerm
+        - Hardware
+        - FreeRTOS/port/RVDS/ARM_CM3
+        - FreeRTOS/include
+        - .cmsis/include
+        - RTE/_Target 1
+      libList: []
+    excludeList: []
+    settings: {}
+    toolchain: AC5
+    toolchainConfigMap:
+      AC5:
+        archExtensions: ""
+        cpuType: Cortex-M3
+        floatingPointHardware: none
+        options:
+          version: 4
+          afterBuildTasks: []
+          asm-compiler:
+            defines: []
+          beforeBuildTasks: []
+          c/cpp-compiler:
+            CXX_FLAGS: --diag_suppress=1 --diag_suppress=1295
+            C_FLAGS: --diag_suppress=1 --diag_suppress=1295
+            c99-mode: true
+            gnu-extensions: true
+            one-elf-section-per-function: true
+            optimization: level-0
+            warnings: all-warnings
+          global:
+            output-debug-info: enable
+            use-microLIB: false
+          linker:
+            $disableOutputTask: false
+            $outputTaskExcludes:
+              - .bin
+              - .s19
+            output-format: elf
+            ro-base: "0x08000000"
+            rw-base: "0x20000000"
+            xo-base: ""
+        scatterFilePath: ""
+        storageLayout:
+          RAM:
+            - id: 1
+              isChecked: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              noInit: false
+              tag: RAM
+            - id: 2
+              isChecked: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              noInit: false
+              tag: RAM
+            - id: 3
+              isChecked: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              noInit: false
+              tag: RAM
+            - id: 1
+              isChecked: true
+              mem:
+                size: "0x5000"
+                startAddr: "0x20000000"
+              noInit: false
+              tag: IRAM
+            - id: 2
+              isChecked: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              noInit: false
+              tag: IRAM
+          ROM:
+            - id: 1
+              isChecked: false
+              isStartup: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              tag: ROM
+            - id: 2
+              isChecked: false
+              isStartup: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              tag: ROM
+            - id: 3
+              isChecked: false
+              isStartup: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              tag: ROM
+            - id: 1
+              isChecked: true
+              isStartup: true
+              mem:
+                size: "0x10000"
+                startAddr: "0x8000000"
+              tag: IROM
+            - id: 2
+              isChecked: false
+              isStartup: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              tag: IROM
+        useCustomScatterFile: false
+    uploadConfigMap:
+      JLink:
+        baseAddr: ""
+        bin: ""
+        cpuInfo:
+          cpuName: "null"
+          vendor: "null"
+        otherCmds: ""
+        proType: 1
+        speed: 8000
+      STLink:
+        address: "0x8000000"
+        bin: ""
+        elFile: None
+        optionBytes: .eide/target 1.st.option.bytes.ini
+        otherCmds: ""
+        proType: SWD
+        resetMode: default
+        runAfterProgram: true
+        speed: 4000
+    uploader: STLink
