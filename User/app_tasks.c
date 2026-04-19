@@ -150,9 +150,9 @@ void CheckAndTriggerUpload_Weight(void)
     if((now - last_upload_tick) < pdMS_TO_TICKS(UPLOAD_DEBOUNCE_MS))
         return;
     
-    s32 weight_diff = abs(weight - (s32)(last_upload_weight * 10));
+    s32 weight_diff = abs(weight - last_upload_weight);
     
-    if(weight_diff >= (s32)(WEIGHT_UPLOAD_THRESHOLD * 10))
+    if(weight_diff >= WEIGHT_UPLOAD_THRESHOLD)
     {
         g_upload_trigger_weight = 1;
         g_upload_status = UPLOAD_TYPE_WEIGHT;  // 设置显示状态
@@ -236,9 +236,9 @@ void ProcessUploadQueue(void)
     
     if(g_upload_trigger_weight)
     {
-        sprintf(payload, "%.1f", (float)weight / 10.0f);
+        sprintf(payload, "%d", weight);
         ESP_MQTTPublish((uint8_t*)TOPIC_WEIGHT, (uint8_t*)payload);
-        last_upload_weight = (float)weight / 10.0f;
+        last_upload_weight = (float)weight;
         g_upload_trigger_weight = 0;
         return;
     }
@@ -901,7 +901,7 @@ void HX711_Task(void* parameter)
     static uint8_t trigger_delay = 0;          // 触发延迟计数
     static uint8_t empty_box_alarm = 0;
     static uint32_t last_play_tick = 0;        // 上次播放时间
-    static s32 filtered_weight = 0;            // 一阶低通滤波缓存，整数存储0.1g单位
+    static s32 filtered_weight = 0;            // 一阶低通滤波缓存，整数存储
     static uint8_t sync_counter = 0;            // 兜底同步计数器：200ms一次，强制同步一次
     
     while (1)
@@ -910,12 +910,12 @@ void HX711_Task(void* parameter)
         
         portENTER_CRITICAL();
         Get_Weight();
-        s32 raw_weight = (s32)(Weight_Shiwu_Float * 10.0f);
+        s32 raw_weight = Weight_Shiwu;
         portEXIT_CRITICAL();
         
         // 一阶低通滤波：新值占75%权重，兼顾响应速度和平滑度
         filtered_weight = (filtered_weight * 1 + raw_weight * 3) / 4;
-        // 重量变化小于0.1g直接保持旧值，彻底消抖
+        // 重量变化小于1g直接保持旧值，彻底消抖
         if(abs(filtered_weight - weight) >= 1) {
             weight = filtered_weight;
         }
@@ -925,8 +925,8 @@ void HX711_Task(void* parameter)
             // ========== 兜底同步：2秒检查一次重量，不一致才上传，不浪费流量 ==========
             sync_counter++;
             if(sync_counter >= 10) { // 200ms/次 × 10次 = 2秒
-                // 只有当前重量和上次上传的重量差超过0.1g才触发上传，相同数据不重复传
-                if(abs(weight - (s32)(last_upload_weight * 10)) >= 1) {
+                // 只有当前重量和上次上传的重量差超过1g才触发上传，相同数据不重复传
+                if(abs(weight - last_upload_weight) >= 1) {
                     g_upload_trigger_weight = 1;
                 }
                 sync_counter = 0;
@@ -944,8 +944,8 @@ void HX711_Task(void* parameter)
                 was_heavy = 0;
                 trigger_delay = 0;
             }
-            // 1. 重量>2.0g：记录"重过"状态，退出空盒状态（降低阈值适配轻药片）
-            if(filtered_weight > 20) {
+            // 1. 重量>2g：记录"重过"状态，退出空盒状态（降低阈值适配轻药片）
+            if(filtered_weight > 2) {
                 was_heavy = 1;
                 trigger_delay = 0;
                 
@@ -958,8 +958,8 @@ void HX711_Task(void* parameter)
 					Servo_Close();
                 }
             }
-            // 2. 曾经重过且现在<0.5g：进入空盒状态（降低空盒阈值，留0.5g回差防抖动）
-            else if(was_heavy && filtered_weight < 5) {
+            // 2. 曾经重过且现在<1g：进入空盒状态
+            else if(was_heavy && filtered_weight < 1) {
                 trigger_delay++;
                 
                 // 连续3次确认后，进入空盒状态（增加确认次数避免传感器漂移误触发）
@@ -976,13 +976,13 @@ void HX711_Task(void* parameter)
                     // 代码驱动播放空盒报警响应
                     XRVoice_PlayRaw(0x09, 0x00);
                     last_play_tick = xTaskGetTickCount();
-                    // 空盒触发时强制上传重量（<1g会显示为0.0，符合需求）
+                    // 空盒触发时强制上传重量
                     g_upload_trigger_weight = 1;
                     g_upload_status = UPLOAD_TYPE_WEIGHT;
                     g_upload_display_tick = last_play_tick;
                 }
             }
-            // 3. 重量在3-5g之间：重置延迟计数
+            // 3. 重量在1-2g之间：重置延迟计数
             else {
                 trigger_delay = 0;
             }
@@ -1002,7 +1002,7 @@ void HX711_Task(void* parameter)
     }
     
     // 检查是否退出空盒状态（重量恢复> 2g，适配轻药片）
-    if(filtered_weight > 20) {
+    if(filtered_weight > 2) {
         empty_box_alarm = 0;
         last_play_tick = 0;
         LED0_OFF();
@@ -1224,20 +1224,16 @@ void Display_Task(void* parameter)
                     OLED_ShowNum(2, 6, (uint32_t)(humidity * 10) % 10, 1);
                     OLED_ShowString(2, 7, "%    ");
                     
-                    // 重量显示（weight单位是0.1g）
+                    // 重量显示
                     OLED_ShowString(3, 1, "W:");
                     if(weight < 0) {
                         OLED_ShowString(3, 3, "-");
-                        OLED_ShowNum(3, 4, (uint32_t)(-weight / 10), 4);
-                        OLED_ShowString(3, 8, ".");
-                        OLED_ShowNum(3, 9, (uint32_t)(-weight % 10), 1);
+                        OLED_ShowNum(3, 4, (uint32_t)(-weight), 5);
                     } else {
                         OLED_ShowString(3, 3, " ");
-                        OLED_ShowNum(3, 4, (uint32_t)(weight / 10), 4);
-                        OLED_ShowString(3, 8, ".");
-                        OLED_ShowNum(3, 9, (uint32_t)(weight % 10), 1);
+                        OLED_ShowNum(3, 4, (uint32_t)weight, 5);
                     }
-                    OLED_ShowString(3, 10, "g    ");
+                    OLED_ShowString(3, 9, "g    ");
                     
                     // 上传状态显示
                     if(upload_status == UPLOAD_TYPE_TEMP) {

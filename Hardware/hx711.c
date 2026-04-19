@@ -1,34 +1,32 @@
 #include "stm32f10x.h"
 #include "hx711.h"
 #include "Delay.h"
-#include <math.h>
 u32 HX711_Buffer;
 u32 Weight_Maopi;
 s32 Weight_Shiwu;
-float Weight_Shiwu_Float;
 u8  Flag_Error=0;
 
 
-#define GapValue 550.5
+#define GapValue 550
 
 
 void Init_HX711pin(void)
 {
 	GPIO_InitTypeDef GPIO_InitStructure;
-	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);	
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
 
 	//HX711_SCK
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_14;				
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP; 		
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;		
-	GPIO_Init(GPIOB, &GPIO_InitStructure);				
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_14;                
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;         
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;        
+	GPIO_Init(GPIOB, &GPIO_InitStructure);                
 	
 	//HX711_DOUT
   GPIO_InitStructure.GPIO_Pin = GPIO_Pin_15;
   GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;     
   GPIO_Init(GPIOB, &GPIO_InitStructure);  
 	
-  GPIO_SetBits(GPIOB,GPIO_Pin_14);				
+  GPIO_SetBits(GPIOB,GPIO_Pin_14);                
 }
 
 u32 HX711_Read(void)	
@@ -50,7 +48,7 @@ u32 HX711_Read(void)
 		count++; 
 		Delay_us(1);
 	} 
- 	HX711_SCK_HIGH(); 
+  	HX711_SCK_HIGH(); 
   count=count^0x800000;
 	Delay_us(1);
 	HX711_SCK_LOW();  
@@ -77,10 +75,9 @@ void Get_Weight(void)
     s32 samples[16];
     u32 sum = 0;
     u8 i;
-    float weight_temp_float;
     s32 diff;
     
-    static float last_stable_weight_float = 0.0f;
+    static s32 last_stable_weight = 0;
     static u8 stable_count = 0;
     
     // 采样8次，平衡精度和速度
@@ -108,53 +105,52 @@ void Get_Weight(void)
         return;
     }
     
-    // 计算重量（浮点精度）
+    // 计算重量（整数精度）
+    s32 weight_temp = 0;
     if(diff > 0)
     {
-        weight_temp_float = (float)diff / GapValue;
+        weight_temp = diff / GapValue;
     }
     else
     {
-        weight_temp_float = 0.0f;
+        weight_temp = 0;
     }
     
     // 小重量阈值
-    if(weight_temp_float < 0.5f)
+    if(weight_temp < 1)
     {
-        weight_temp_float = 0.0f;
+        weight_temp = 0;
     }
     
     // 异常值二次过滤：重量超过5kg直接丢弃
-    if(weight_temp_float > 5000.0f)
+    if(weight_temp > 5000)
     {
         return;
     }
     
     // 稳定防抖逻辑
-    float weight_diff_float = fabsf(weight_temp_float - last_stable_weight_float);
+    s32 weight_diff = abs(weight_temp - last_stable_weight);
     
-    // 大重量变化（>1.0g）直接响应
-    if(weight_diff_float > 1.0f)
+    // 大重量变化（>1g）直接响应
+    if(weight_diff > 1)
     {
-        Weight_Shiwu = (s32)weight_temp_float;
-        Weight_Shiwu_Float = weight_temp_float;
-        last_stable_weight_float = weight_temp_float;
+        Weight_Shiwu = weight_temp;
+        last_stable_weight = weight_temp;
         stable_count = 0;
     }
-    // 中小变化：连续2次偏差小于0.5g才更新
-    else if(weight_diff_float <= 0.5f)
+    // 中小变化：连续2次偏差小于1g才更新
+    else if(weight_diff <= 1)
     {
         stable_count++;
         if(stable_count >= 2)
         {
-            Weight_Shiwu = (s32)weight_temp_float;
-            Weight_Shiwu_Float = weight_temp_float;
+            Weight_Shiwu = weight_temp;
             stable_count = 2;
         }
     }
     else
     {
         stable_count = 0;
-        last_stable_weight_float = weight_temp_float;
+        last_stable_weight = weight_temp;
     }
 }

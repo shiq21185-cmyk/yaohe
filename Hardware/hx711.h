@@ -17,7 +17,6 @@ extern void Get_Weight(void);
 extern u32 HX711_Buffer;
 extern u32 Weight_Maopi;
 extern s32 Weight_Shiwu;
-extern float Weight_Shiwu_Float;
 extern u8 Flag_Error;
 
 #endif

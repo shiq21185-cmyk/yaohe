@@ -72,7 +72,7 @@ int main(void)
 
     ReadDHT11Data();
     Get_Weight();
-    weight = (s32)(Weight_Shiwu_Float * 10.0f);
+    weight = Weight_Shiwu;
     UpdateDisplay();
     
     xReturn = xTaskCreate((TaskFunction_t)AppTaskCreate, "AppTaskCreate", 256, NULL, 1, &AppTaskCreate_Handle);
