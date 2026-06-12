@@ -129,7 +129,7 @@ static void XRVoice_ParseCommand(uint8_t cmd_type, uint8_t cmd_id)
 
     CheckWakeupTimeout();
 
-    // 处理Type=01, ID=02 (唤醒词)
+    // 处理Type=01, ID=02
     if(cmd_type == 0x01 && cmd_id == 0x02)
     {
         wakeup_state = 1;

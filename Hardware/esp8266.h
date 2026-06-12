@@ -11,6 +11,6 @@ void ESP_MQTTPublish(unsigned char *topic, unsigned char *data);
 void ESP8266_SendData(unsigned char *data, unsigned short len);
 _Bool ESP8266_SendCmd(char *cmd, char *res);
 unsigned char *ESP8266_GetIPD(unsigned short timeOut);
-unsigned char ESP_ConnectMQTT(void);
+void ESP_ConnectMQTT(void);
 void ESP_MQTTPublish(unsigned char *topic, unsigned char *data);
 #endif

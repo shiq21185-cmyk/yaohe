@@ -6,67 +6,137 @@
 #include <string.h>
 #include <stdio.h>
 #include "app_tasks.h"
+#include "flash_storage.h"
 
+// ==================== È«¾Ö±äÁ¿¶¨Òå ====================
+
+/**
+  * @brief  ´ÓÀ¶ÑÀ½ÓÊÕµ½µÄ×îĞÂÊ±¼ä
+  */
 volatile HC06_Time_t g_bt_time = {0};
+
+/**
+  * @brief  À¶ÑÀÊ±¼äÊÇ·ñÓĞĞ§±êÖ¾
+  * @note   1=ÓĞĞ§, 0=ÎŞĞ§
+  */
 volatile uint8_t g_bt_time_valid = 0;
+
+/**
+  * @brief  À¶ÑÀÊ±¼äÊÇ·ñ¸üĞÂ±êÖ¾
+  * @note   1=ÓĞĞÂÊı¾İ, 0=ÎŞĞÂÊı¾İ
+  */
 volatile uint8_t g_bt_time_updated = 0;
+
+/**
+  * @brief  À¶ÑÀµ÷ÊÔ»º³åÇø
+  * @note   ´æ´¢×îºó3¸ö½ÓÊÕµ½µÄ×Ö½Ú£¬ÓÃÓÚµ÷ÊÔ
+  */
 volatile uint8_t g_bt_debug_buf[3] = {0};
+
+/**
+  * @brief  µ÷ÊÔÊı¾İ¾ÍĞ÷±êÖ¾
+  * @note   1=ÓĞĞÂÊı¾İ, 0=ÎŞĞÂÊı¾İ
+  */
 volatile uint8_t g_bt_debug_ready = 0;
+
+/**
+  * @brief  À¶ÑÀ½ÓÊÕ×Ö½Ú¼ÆÊı
+  * @note   ÀÛ¼ÆÍ³¼Æ½ÓÊÕµ½µÄ×Ö½ÚÊı
+  */
 volatile uint8_t g_bt_rx_count = 0;
 
+/**
+  * @brief  3¸öÀ¶ÑÀÄÖÖÓÉèÖÃ
+  * @note   Ë÷Òı0-2¶ÔÓ¦ÄÖÖÓ1-3
+  */
 volatile HC06_Alarm_t g_bt_alarms[3] = {
-    {ALARM_HOUR_1, ALARM_MINUTE_1, 1},
-    {ALARM_HOUR_2, ALARM_MINUTE_2, 1},
-    {ALARM_HOUR_3, ALARM_MINUTE_3, 1}
+    {ALARM_HOUR_1, ALARM_MINUTE_1, 1},    // ÄÖÖÓ1Ä¬ÈÏÖµ
+    {ALARM_HOUR_2, ALARM_MINUTE_2, 1},    // ÄÖÖÓ2Ä¬ÈÏÖµ
+    {ALARM_HOUR_3, ALARM_MINUTE_3, 1}     // ÄÖÖÓ3Ä¬ÈÏÖµ
 };
+
+/**
+  * @brief  ÄÖÖÓÊÇ·ñ¸üĞÂ±êÖ¾
+  * @note   1=ÓĞĞÂÊı¾İ, 0=ÎŞĞÂÊı¾İ
+  */
 volatile uint8_t g_bt_alarm_updated = 0;
+
+/**
+  * @brief  ×îĞÂ¸üĞÂµÄÄÖÖÓË÷Òı
+  * @note   0-2¶ÔÓ¦ÄÖÖÓ1-3
+  */
 volatile uint8_t g_bt_alarm_index = 0;
 
+// ==================== ºËĞÄº¯ÊıÊµÏÖ ====================
+
+/**
+  * @brief  ´¦Àí½ÓÊÕµ½µÄµ¥¸ö×Ö½ÚÊı¾İ
+  * @param  byte: ½ÓÊÕµ½µÄ×Ö½Ú
+  * @retval ÎŞ
+  * @note   Í¨¹ı×´Ì¬»ú½âÎö3×Ö½ÚĞ­Òé£º
+  *         - ×´Ì¬0£º½ÓÊÕµÚ1×Ö½Ú
+  *         - ×´Ì¬1£º½ÓÊÕµÚ2×Ö½Ú
+  *         - ×´Ì¬2£º½ÓÊÕµÚ3×Ö½Ú²¢´¦Àí
+  * 
+  *         Ğ­Òé¸ñÊ½£º
+  *         - Ê±¼äÍ¬²½£ºµÚ1×Ö½Ú0-23£¨Ğ¡Ê±£©, µÚ2×Ö½Ú0-59£¨·ÖÖÓ£©, µÚ3×Ö½Ú0-59£¨Ãë£©
+  *         - ÄÖÖÓÉèÖÃ£ºµÚ1×Ö½Ú24-26£¨ÄÖÖÓ1-3£©, µÚ2×Ö½Ú0-23£¨Ğ¡Ê±£©, µÚ3×Ö½Ú0-59£¨·ÖÖÓ£©
+  * 
+  *         ³¬Ê±»úÖÆ£º³¬¹ı500msÎ´½ÓÊÕµ½ÏÂÒ»×Ö½ÚÔòÖØÖÃ×´Ì¬»ú
+  *         ÌØÊâ´¦Àí£º¹ıÂË13:10¿ªÍ·µÄ´íÎóÊ±¼ä£¨À¶ÑÀ¶Ï¿ªÊ±µÄÄ¬ÈÏÖµ£©
+  */
 void HC06_ProcessByte(uint8_t byte)
 {
-    static uint8_t stage = 0;
-    static uint8_t temp_buf[3];
-    static uint32_t last_byte_tick = 0;
-    uint32_t now = xTaskGetTickCount();
+    static uint8_t stage = 0;              // ½ÓÊÕ×´Ì¬»ú×´Ì¬ (0-2)
+    static uint8_t temp_buf[3];            // ÁÙÊ±»º³åÇø£¬´æ´¢3¸ö×Ö½Ú
+    static uint32_t last_byte_tick = 0;    // ÉÏÒ»×Ö½ÚµÄ½ÓÊÕÊ±¼ä
+    uint32_t now = xTaskGetTickCount();    // µ±Ç°Ê±¼ä
     
-    uint8_t first, second, third;
-    uint8_t alarm_index;
+    uint8_t first, second, third;          // Èı¸ö×Ö½ÚµÄÁÙÊ±±äÁ¿
+    uint8_t alarm_index;                   // ÄÖÖÓË÷Òı
     
+    // ³¬Ê±¼ì²â£º³¬¹ı500msÎ´½ÓÊÕµ½ÏÂÒ»×Ö½ÚÔòÖØÖÃ×´Ì¬»ú
     if((now - last_byte_tick) > pdMS_TO_TICKS(500) && stage != 0) {
         stage = 0;
     }
-    last_byte_tick = now;
+    last_byte_tick = now;                  // ¸üĞÂÉÏÒ»×Ö½ÚÊ±¼ä
     
+    // ¸üĞÂµ÷ÊÔ»º³åÇøºÍ¼ÆÊı
     g_bt_debug_buf[g_bt_rx_count % 3] = byte;
     g_bt_rx_count++;
     
+    // ×´Ì¬»ú´¦Àí
     switch(stage) {
-        case 0:
+        case 0:  // ½ÓÊÕµÚ1×Ö½Ú
             temp_buf[0] = byte;
             stage = 1;
             break;
             
-        case 1:
+        case 1:  // ½ÓÊÕµÚ2×Ö½Ú
             temp_buf[1] = byte;
             stage = 2;
             break;
             
-        case 2:
+        case 2:  // ½ÓÊÕµÚ3×Ö½Ú²¢´¦Àí
             temp_buf[2] = byte;
-            stage = 0;
+            stage = 0;  // ÖØÖÃ×´Ì¬»ú
             
             first = temp_buf[0];
             second = temp_buf[1];
             third = temp_buf[2];
             
+            // ¸üĞÂµ÷ÊÔ»º³åÇø
             g_bt_debug_buf[0] = first;
             g_bt_debug_buf[1] = second;
             g_bt_debug_buf[2] = third;
             g_bt_debug_ready = 1;
             
+            // ÅĞ¶ÏÊÇÄÖÖÓÉèÖÃ»¹ÊÇÊ±¼äÍ¬²½
             if(first >= 24) {
+                // ÄÖÖÓÉèÖÃ£ºµÚ1×Ö½Ú24-26¶ÔÓ¦ÄÖÖÓ1-3
                 alarm_index = first - 24;
                 
+                // ÑéÖ¤Êı¾İÓĞĞ§ĞÔ£ºÄÖÖÓË÷Òı<3£¬Ğ¡Ê±<=23£¬·ÖÖÓ<=59
                 if(alarm_index < 3 && second <= 23 && third <= 59) {
                     taskENTER_CRITICAL();
                     g_bt_alarms[alarm_index].hour = second;
@@ -75,11 +145,14 @@ void HC06_ProcessByte(uint8_t byte)
                     g_bt_alarm_updated = 1;
                     g_bt_alarm_index = alarm_index;
                     taskEXIT_CRITICAL();
+                    // ×Ô¶¯±£´æµ½Flash
+                    HC06_SaveToFlash();
                 }
             } else {
+                // Ê±¼äÍ¬²½£ºµÚ1×Ö½Ú0-23£¨Ğ¡Ê±£©
                 if(first <= 23 && second <= 59 && third <= 59) {
                     taskENTER_CRITICAL();
-                    // è¿‡æ»¤è“ç‰™æ–­å¼€æ—¶çš„æ‰€æœ‰13:10å¼€å¤´çš„é”™è¯¯æ—¶é—´
+                    // ¹ıÂËÀ¶ÑÀ¶Ï¿ªÊ±µÄËùÓĞ13:10¿ªÍ·µÄ´íÎóÊ±¼ä
                     if(!(first == 13 && second == 10)) {
                         g_bt_time.hour = first;
                         g_bt_time.minute = second;
@@ -92,12 +165,18 @@ void HC06_ProcessByte(uint8_t byte)
             }
             break;
             
-        default:
+        default:  // Òì³£×´Ì¬£¬ÖØÖÃ
             stage = 0;
             break;
     }
 }
 
+/**
+  * @brief  »ñÈ¡´ÓÀ¶ÑÀÍ¬²½µÄÊ±¼ä
+  * @param  time: Êä³ö²ÎÊı£¬´æ´¢Ê±¼äµÄÖ¸Õë
+  * @retval 1=³É¹¦»ñÈ¡, 0=ÎŞÓĞĞ§Ê±¼ä
+  * @note   »ñÈ¡ºó»áÇå³ı¸üĞÂ±êÖ¾£¬ĞèÒªÊ¹ÓÃÁÙ½çÇø±£»¤
+  */
 uint8_t HC06_GetTime(HC06_Time_t *time)
 {
     taskENTER_CRITICAL();
@@ -105,7 +184,7 @@ uint8_t HC06_GetTime(HC06_Time_t *time)
         time->hour = g_bt_time.hour;
         time->minute = g_bt_time.minute;
         time->second = g_bt_time.second;
-        g_bt_time_updated = 0;
+        g_bt_time_updated = 0;  // Çå³ı¸üĞÂ±êÖ¾
         taskEXIT_CRITICAL();
         return 1;
     }
@@ -113,18 +192,29 @@ uint8_t HC06_GetTime(HC06_Time_t *time)
     return 0;
 }
 
+/**
+  * @brief  ¼ì²éÊÇ·ñÓĞĞÂµÄÀ¶ÑÀÊ±¼äÊı¾İ
+  * @param  ÎŞ
+  * @retval 1=ÓĞĞÂÊı¾İ, 0=ÎŞĞÂÊı¾İ
+  * @note   ¶ÁÈ¡ºó²»»áÇå³ı±êÖ¾£¬Ğèµ÷ÓÃHC06_ClearTimeFlagÇå³ı
+  */
 uint8_t HC06_HasNewTime(void)
 {
     uint8_t has_new;
     taskENTER_CRITICAL();
     has_new = g_bt_time_updated;
     if(has_new) {
-        g_bt_time_updated = 0;
+        g_bt_time_updated = 0;  // Çå³ı±êÖ¾
     }
     taskEXIT_CRITICAL();
     return has_new;
 }
 
+/**
+  * @brief  Çå³ıÀ¶ÑÀÊ±¼ä¸üĞÂ±êÖ¾
+  * @param  ÎŞ
+  * @retval ÎŞ
+  */
 void HC06_ClearTimeFlag(void)
 {
     taskENTER_CRITICAL();
@@ -132,6 +222,11 @@ void HC06_ClearTimeFlag(void)
     taskEXIT_CRITICAL();
 }
 
+/**
+  * @brief  ¼ì²éÊÇ·ñÓĞĞÂµÄÄÖÖÓÊı¾İ
+  * @param  ÎŞ
+  * @retval 1=ÓĞĞÂÊı¾İ, 0=ÎŞĞÂÊı¾İ
+  */
 uint8_t HC06_HasNewAlarm(void)
 {
     uint8_t has_new;
@@ -141,6 +236,13 @@ uint8_t HC06_HasNewAlarm(void)
     return has_new;
 }
 
+/**
+  * @brief  »ñÈ¡×îĞÂ¸üĞÂµÄÄÖÖÓÊı¾İ
+  * @param  index: Êä³ö²ÎÊı£¬ÄÖÖÓË÷Òı (0-2)
+  * @param  alarm: Êä³ö²ÎÊı£¬ÄÖÖÓÊı¾İÖ¸Õë
+  * @retval 1=³É¹¦»ñÈ¡, 0=ÎŞĞÂÊı¾İ
+  * @note   »ñÈ¡ºó»áÇå³ı¸üĞÂ±êÖ¾
+  */
 uint8_t HC06_GetNewAlarm(uint8_t *index, HC06_Alarm_t *alarm)
 {
     taskENTER_CRITICAL();
@@ -149,7 +251,7 @@ uint8_t HC06_GetNewAlarm(uint8_t *index, HC06_Alarm_t *alarm)
         alarm->hour = g_bt_alarms[*index].hour;
         alarm->minute = g_bt_alarms[*index].minute;
         alarm->enabled = g_bt_alarms[*index].enabled;
-        g_bt_alarm_updated = 0;
+        g_bt_alarm_updated = 0;  // Çå³ı¸üĞÂ±êÖ¾
         taskEXIT_CRITICAL();
         return 1;
     }
@@ -157,9 +259,18 @@ uint8_t HC06_GetNewAlarm(uint8_t *index, HC06_Alarm_t *alarm)
     return 0;
 }
 
+/**
+  * @brief  ÉèÖÃÖ¸¶¨ÄÖÖÓµÄÊ±¼ä
+  * @param  index: ÄÖÖÓË÷Òı (0-2)
+  * @param  hour: ÄÖÖÓĞ¡Ê± (0-23)
+  * @param  minute: ÄÖÖÓ·ÖÖÓ (0-59)
+  * @param  enabled: ÄÖÖÓÊ¹ÄÜ±êÖ¾
+  * @retval ÎŞ
+  * @note   »áÉèÖÃ¸üĞÂ±êÖ¾£¬ĞèÒªÊ¹ÓÃÁÙ½çÇø±£»¤
+  */
 void HC06_SetAlarm(uint8_t index, uint8_t hour, uint8_t minute, uint8_t enabled)
 {
-    if(index >= 3) return;
+    if(index >= 3) return;  // ²ÎÊıĞ£Ñé
     taskENTER_CRITICAL();
     g_bt_alarms[index].hour = hour;
     g_bt_alarms[index].minute = minute;
@@ -167,27 +278,93 @@ void HC06_SetAlarm(uint8_t index, uint8_t hour, uint8_t minute, uint8_t enabled)
     g_bt_alarm_updated = 1;
     g_bt_alarm_index = index;
     taskEXIT_CRITICAL();
+    
+    // ×Ô¶¯±£´æµ½Flash
+    HC06_SaveToFlash();
 }
 
+/**
+  * @brief  ±£´æËùÓĞÄÖÖÓÊı¾İµ½Flash
+  * @param  ÎŞ
+  * @retval 1=±£´æ³É¹¦, 0=±£´æÊ§°Ü
+  */
+uint8_t HC06_SaveToFlash(void)
+{
+    FlashAlarm_t tempAlarms[3];
+    
+    taskENTER_CRITICAL();
+    // ¸´ÖÆÊı¾İµ½ÁÙÊ±»º³åÇø
+    for(int i = 0; i < 3; i++)
+    {
+        tempAlarms[i].hour = g_bt_alarms[i].hour;
+        tempAlarms[i].minute = g_bt_alarms[i].minute;
+        tempAlarms[i].enabled = g_bt_alarms[i].enabled;
+    }
+    taskEXIT_CRITICAL();
+    
+    // ±£´æµ½Flash
+    return FlashStorage_SaveAlarms(tempAlarms);
+}
+
+/**
+  * @brief  ´ÓFlash¼ÓÔØËùÓĞÄÖÖÓÊı¾İ
+  * @param  ÎŞ
+  * @retval 1=¼ÓÔØ³É¹¦, 0=¼ÓÔØÊ§°Ü
+  */
+uint8_t HC06_LoadFromFlash(void)
+{
+    FlashAlarm_t tempAlarms[3];
+    
+    if(FlashStorage_LoadAlarms(tempAlarms))
+    {
+        taskENTER_CRITICAL();
+        for(int i = 0; i < 3; i++)
+        {
+            g_bt_alarms[i].hour = tempAlarms[i].hour;
+            g_bt_alarms[i].minute = tempAlarms[i].minute;
+            g_bt_alarms[i].enabled = tempAlarms[i].enabled;
+        }
+        taskEXIT_CRITICAL();
+        return 1;
+    }
+    return 0;
+}
+
+/**
+  * @brief  HC06À¶ÑÀÄ£¿é³õÊ¼»¯
+  * @param  ÎŞ
+  * @retval ÎŞ
+  * @note   ³õÊ¼»¯ËùÓĞÈ«¾Ö±äÁ¿ºÍÄ¬ÈÏÄÖÖÓÉèÖÃ
+  */
 void HC06_Init(void)
 {
+    // ³õÊ¼»¯Flash´æ´¢Ä£¿é
+    FlashStorage_Init();
+    
+    // ³õÊ¼»¯Ê±¼äÏà¹Ø±äÁ¿
     g_bt_time_valid = 0;
     g_bt_time_updated = 0;
     g_bt_rx_count = 0;
     g_bt_debug_ready = 0;
     
+    // ³õÊ¼»¯ÄÖÖÓÏà¹Ø±äÁ¿
     g_bt_alarm_updated = 0;
     g_bt_alarm_index = 0;
     
-    g_bt_alarms[0].hour = ALARM_HOUR_1;
-    g_bt_alarms[0].minute = ALARM_MINUTE_1;
-    g_bt_alarms[0].enabled = 1;
-    
-    g_bt_alarms[1].hour = ALARM_HOUR_2;
-    g_bt_alarms[1].minute = ALARM_MINUTE_2;
-    g_bt_alarms[1].enabled = 1;
-    
-    g_bt_alarms[2].hour = ALARM_HOUR_3;
-    g_bt_alarms[2].minute = ALARM_MINUTE_3;
-    g_bt_alarms[2].enabled = 1;
+    // ÏÈ³¢ÊÔ´ÓFlash¼ÓÔØÊı¾İ
+    if(!HC06_LoadFromFlash())
+    {
+        // Èç¹ûFlashÖĞÃ»ÓĞÓĞĞ§Êı¾İ£¬Ê¹ÓÃÄ¬ÈÏÖµ
+        g_bt_alarms[0].hour = ALARM_HOUR_1;
+        g_bt_alarms[0].minute = ALARM_MINUTE_1;
+        g_bt_alarms[0].enabled = 1;
+        
+        g_bt_alarms[1].hour = ALARM_HOUR_2;
+        g_bt_alarms[1].minute = ALARM_MINUTE_2;
+        g_bt_alarms[1].enabled = 1;
+        
+        g_bt_alarms[2].hour = ALARM_HOUR_3;
+        g_bt_alarms[2].minute = ALARM_MINUTE_3;
+        g_bt_alarms[2].enabled = 1;
+    }
 }

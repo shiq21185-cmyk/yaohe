@@ -42,6 +42,7 @@
 .\objects\voice_command_handler.o: .\FreeRTOS\include\list.h
 .\objects\voice_command_handler.o: .\FreeRTOS\include\semphr.h
 .\objects\voice_command_handler.o: .\FreeRTOS\include\queue.h
+.\objects\voice_command_handler.o: .\Hardware\usart.h
 .\objects\voice_command_handler.o: .\Hardware\OLED.h
 .\objects\voice_command_handler.o: User\app_tasks.h
 .\objects\voice_command_handler.o: .\Hardware\hx711.h

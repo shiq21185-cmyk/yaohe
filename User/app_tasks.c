@@ -29,6 +29,38 @@
 #define BOX_EMPTY         4   // 药盒为空
 #define BOX_NOT_EMPTY     5   // 药盒不空
 
+// ==================== 语音命令查找表 ====================
+typedef struct {
+    uint8_t cmd_high;
+    uint8_t cmd_low;
+} VoiceCmd;
+
+// 数字0-9的语音命令
+static const VoiceCmd voice_numbers_0_9[10] = {
+    {0x02, 0x08}, {0x02, 0x09}, {0x02, 0x0A}, {0x02, 0x0B}, {0x02, 0x0C}, // 0-4
+    {0x03, 0x00}, {0x03, 0x01}, {0x03, 0x02}, {0x03, 0x03}, {0x03, 0x04}  // 5-9
+};
+
+// 数字10-60的语音命令
+static const VoiceCmd voice_numbers_10_60[51] = {
+    {0x03, 0x05}, {0x03, 0x06}, {0x03, 0x07}, {0x03, 0x08}, {0x03, 0x09}, // 10-14
+    {0x03, 0x0A}, {0x03, 0x0B}, {0x03, 0x0C}, {0x04, 0x00}, {0x04, 0x01}, // 15-19
+    {0x04, 0x02}, {0x04, 0x03}, {0x04, 0x04}, {0x04, 0x05}, {0x04, 0x06}, // 20-24
+    {0x04, 0x07}, {0x04, 0x08}, {0x04, 0x09}, {0x04, 0x10}, {0x04, 0x11}, // 25-29
+    {0x04, 0x12}, {0x04, 0x13}, {0x04, 0x14}, {0x04, 0x15}, {0x04, 0x16}, // 30-34
+    {0x04, 0x17}, {0x04, 0x18}, {0x04, 0x19}, {0x04, 0x20}, {0x04, 0x21}, // 35-39
+    {0x04, 0x22}, {0x04, 0x23}, {0x04, 0x24}, {0x04, 0x25}, {0x04, 0x26}, // 40-44
+    {0x04, 0x27}, {0x04, 0x28}, {0x04, 0x29}, {0x04, 0x30}, {0x04, 0x31}, // 45-49
+    {0x04, 0x32}, {0x04, 0x33}, {0x04, 0x34}, {0x04, 0x35}, {0x04, 0x36}, // 50-54
+    {0x04, 0x37}, {0x04, 0x38}, {0x04, 0x39}, {0x04, 0x40}, {0x04, 0x41}, // 55-59
+    {0x04, 0x42}  // 60
+};
+
+// 时间段语音命令
+static const VoiceCmd voice_periods[] = {
+    {0x08, 0x03}, {0x08, 0x04}, {0x08, 0x05}, {0x08, 0x06}, {0x08, 0x07}, {0x08, 0x08} // 凌晨-晚上
+};
+
 // 状态变量
 volatile uint8_t g_box_state = BOX_CLOSED;        // 盒子状态
 volatile uint8_t g_alarm_state = ALARM_SILENT;    // 闹钟状态
@@ -50,43 +82,49 @@ volatile uint8_t g_upload_trigger_humid = 0;
 volatile uint8_t g_upload_trigger_box = 0;
 volatile uint8_t g_upload_trigger_alarm = 0;
 volatile uint8_t g_upload_trigger_box_content = 0;
-#define SYNC_VALID_DURATION_MS  0xFFFFFFFF   //蓝牙同步永久有效，断开蓝牙时间不会重置
-#define TIME_TASK_DELAY_MS    245     // Time_Task执行周期（毫秒），等于1秒。
+
+volatile uint8_t g_upload_status = 0;
+volatile uint32_t g_upload_display_tick = 0;
+volatile uint8_t g_need_upload = 0;
+
 // ==================== 舵机 ====================
 volatile uint8_t g_servo_cmd = SERVO_CMD_NONE;
 volatile uint8_t g_servo_state = 0;        // 0=关闭, 1=打开
 TaskHandle_t Servo_Task_Handle = NULL;
 
-volatile uint8_t g_upload_status = 0;
-volatile uint32_t g_upload_display_tick = 0;
-volatile uint8_t g_need_upload = 0;
-// 闹钟持续提醒相关变量
+// ==================== 闹钟持续提醒相关变量 ====================
 volatile uint8_t g_alarm_ringing = 0;         // 闹钟正在响
 volatile uint8_t g_light_changed = 0;         // 光敏变化标志
 volatile uint32_t g_alarm_start_tick = 0;     // 闹钟开始时间
 volatile uint32_t g_last_alarm_play_tick = 0; // 上次播放时间
 volatile uint8_t g_last_light_state = 0;      // 上次光敏状态
 volatile uint8_t g_alarm_servo_state = 0;     // 闹钟舵机状态：0=无闹钟/结束，1=响铃等待开盖，2=已开盖等待关盖
+volatile uint32_t g_last_led_toggle_tick = 0; // LED上次翻转时间
 
+// ==================== 空盒报警 ====================
+volatile uint8_t g_stop_empty_box_alarm = 0;   // 停止空盒报警标志
+volatile uint8_t g_empty_box_alarm_active = 0; // 空盒报警激活标志
+
+// ==================== 显示/UI ====================
 volatile uint8_t display_mode = 0;
 
+// ==================== 温湿度 ====================
 float temperature = 0;
 float humidity = 0;
 float last_upload_temp = -999.0f;
 float last_upload_humid = -999.0f;
-
-s32 weight = 0;
-uint8_t tare_done = 0;
-
 uint8_t dht11_last_status = 0;
 
-volatile uint8_t g_stop_empty_box_alarm = 0;   // 停止空盒报警标志
-volatile uint8_t g_empty_box_alarm_active = 0; // 空盒报警激活标志
+// ==================== 重量 ====================
+float weight = 0.0f;
+uint8_t tare_done = 0;
 
+// ==================== 时间/闹钟 ====================
 volatile uint8_t current_hour = 8;
 volatile uint8_t current_minute = 30;
 volatile uint8_t current_second = 0;
 
+// ==================== 按键/蓝牙 ====================
 volatile uint8_t g_key1_pressed = 0;
 uint8_t show_bt_time = 0;
 volatile uint8_t g_last_hex[3] = {0};
@@ -96,13 +134,12 @@ volatile uint32_t g_last_sync_tick = 0;
 volatile uint8_t  g_sync_status = 0;
 volatile uint32_t g_time_task_run_count = 0;
 
-// 屏幕3编辑相关变量
+// ==================== 屏幕3编辑相关变量 ====================
 volatile uint8_t g_edit_mode = EDIT_MODE_NONE;   // 当前编辑模式
 volatile uint8_t g_edit_field = 0;                // 0=小时, 1=分钟
 volatile uint8_t g_volume = 1;                    // 当前音量 1-5
 
-
-
+// ==================== RTOS对象 ====================
 SemaphoreHandle_t xTimeMutex = NULL;
 
 StackType_t Idle_Task_Stack[configMINIMAL_STACK_SIZE];
@@ -119,10 +156,18 @@ TaskHandle_t Key_Task_Handle = NULL;
 TaskHandle_t Time_Task_Handle = NULL;
 TaskHandle_t Voice_Task_Handle = NULL;
 
+// ==================== 宏定义 ====================
+#define SYNC_VALID_DURATION_MS  0xFFFFFFFF   //蓝牙同步永久有效，断开蓝牙时间不会重置
+#define TIME_TASK_DELAY_MS    245     // Time_Task执行周期（毫秒），等于1秒。
 #define TEMP_UPLOAD_THRESHOLD   0.2f
 #define HUMID_UPLOAD_THRESHOLD  1.0f
 #define UPLOAD_MIN_INTERVAL     500
 
+// ==================================================
+// FreeRTOS系统函数 - 提供静态内存
+// ==================================================
+
+// 设置空闲任务的内存
 void vApplicationGetIdleTaskMemory(StaticTask_t **ppxIdleTaskTCBBuffer,
                                    StackType_t **ppxIdleTaskStackBuffer,
                                    uint32_t *pulIdleTaskStackSize)
@@ -132,15 +177,21 @@ void vApplicationGetIdleTaskMemory(StaticTask_t **ppxIdleTaskTCBBuffer,
     *pulIdleTaskStackSize = configMINIMAL_STACK_SIZE;
 }
 
+// 设置定时器任务的内存
 void vApplicationGetTimerTaskMemory(StaticTask_t **ppxTimerTaskTCBBuffer,
                                     StackType_t **ppxTimerTaskStackBuffer,
-                                    uint32_t *pulTimerTaskStackSize)
+                                    uint32_t *pulIdleTaskStackSize)
 {
     *ppxTimerTaskTCBBuffer = &Timer_Task_TCB;
     *ppxTimerTaskStackBuffer = Timer_Task_Stack;
-    *pulTimerTaskStackSize = configTIMER_TASK_STACK_DEPTH;
+    *pulIdleTaskStackSize = configTIMER_TASK_STACK_DEPTH;
 }
-// ==================== 检查状态码并触发上传 ====================
+
+// ==================================================
+// 上传数据相关函数
+// ==================================================
+
+// 检查重量变化，触发上传
 void CheckAndTriggerUpload_Weight(void)
 {
     static TickType_t last_upload_tick = 0;
@@ -150,7 +201,7 @@ void CheckAndTriggerUpload_Weight(void)
     if((now - last_upload_tick) < pdMS_TO_TICKS(UPLOAD_DEBOUNCE_MS))
         return;
     
-    s32 weight_diff = abs(weight - last_upload_weight);
+    float weight_diff = fabsf(weight - last_upload_weight);
     
     if(weight_diff >= WEIGHT_UPLOAD_THRESHOLD)
     {
@@ -161,7 +212,7 @@ void CheckAndTriggerUpload_Weight(void)
     }
 }
 
-// ==================== 检查状态码并触发上传 ====================
+// 检查状态变化（盒子、闹钟、是否空），触发上传
 void CheckAndTriggerUpload_Status(void)
 {
     static TickType_t last_upload_tick = 0;
@@ -200,7 +251,7 @@ void CheckAndTriggerUpload_Status(void)
     last_upload_tick = now;
 }
 
-// ==================== 统一的上传处理函数 ====================
+// 执行上传，把数据发送到网络（状态、重量、温度、湿度）
 void ProcessUploadQueue(void)
 {
     char payload[32];
@@ -236,9 +287,9 @@ void ProcessUploadQueue(void)
     
     if(g_upload_trigger_weight)
     {
-        sprintf(payload, "%d", weight);
+        sprintf(payload, "%.1f", weight);
         ESP_MQTTPublish((uint8_t*)TOPIC_WEIGHT, (uint8_t*)payload);
-        last_upload_weight = (float)weight;
+        last_upload_weight = weight;
         g_upload_trigger_weight = 0;
         return;
     }
@@ -262,6 +313,11 @@ void ProcessUploadQueue(void)
     }
 }
 
+// ==================================================
+// 语音播放相关函数
+// ==================================================
+
+// 播放语音（1-9）
 void Voice_Play(uint8_t index)
 {
     if(index < 1 || index > 9) return;
@@ -275,348 +331,37 @@ void Voice_Play_Dot(void)
     XRVoice_PlayRaw(0x10, 0x00);
 }
 
-// 播放数字语音 (0-9)
+// 播放数字 0-9
 void Voice_Play_Number(uint8_t num)
 {
     if(num > 9) return;
-    
-    // 映射数字到语音命令
-    switch(num)
-    {
-        case 0: XRVoice_PlayRaw(0x02, 0x08); break; // 零
-        case 1: XRVoice_PlayRaw(0x02, 0x09); break; // 一
-        case 2: XRVoice_PlayRaw(0x02, 0x0A); break; // 二
-        case 3: XRVoice_PlayRaw(0x02, 0x0B); break; // 三
-        case 4: XRVoice_PlayRaw(0x02, 0x0C); break; // 四
-        case 5: XRVoice_PlayRaw(0x03, 0x00); break; // 五
-        case 6: XRVoice_PlayRaw(0x03, 0x01); break; // 六
-        case 7: XRVoice_PlayRaw(0x03, 0x02); break; // 七
-        case 8: XRVoice_PlayRaw(0x03, 0x03); break; // 八
-        case 9: XRVoice_PlayRaw(0x03, 0x04); break; // 九
-    }
+    XRVoice_PlayRaw(voice_numbers_0_9[num].cmd_high, voice_numbers_0_9[num].cmd_low);
 }
 
-// 播放数字语音 (0-60)
+// 播放数字 0-60
 void Voice_Play_Number_Full(uint8_t num)
 {
-    if(num == 0)
+    if(num > 60) return;
+    
+    if(num <= 9)
     {
-        XRVoice_PlayRaw(0x02, 0x08); // 零
+        XRVoice_PlayRaw(voice_numbers_0_9[num].cmd_high, voice_numbers_0_9[num].cmd_low);
     }
-    else if(num == 1)
+    else
     {
-        XRVoice_PlayRaw(0x02, 0x09); // 一
-    }
-    else if(num == 2)
-    {
-        XRVoice_PlayRaw(0x02, 0x0A); // 二
-    }
-    else if(num == 3)
-    {
-        XRVoice_PlayRaw(0x02, 0x0B); // 三
-    }
-    else if(num == 4)
-    {
-        XRVoice_PlayRaw(0x02, 0x0C); // 四
-    }
-    else if(num == 5)
-    {
-        XRVoice_PlayRaw(0x03, 0x00); // 五
-    }
-    else if(num == 6)
-    {
-        XRVoice_PlayRaw(0x03, 0x01); // 六
-    }
-    else if(num == 7)
-    {
-        XRVoice_PlayRaw(0x03, 0x02); // 七
-    }
-    else if(num == 8)
-    {
-        XRVoice_PlayRaw(0x03, 0x03); // 八
-    }
-    else if(num == 9)
-    {
-        XRVoice_PlayRaw(0x03, 0x04); // 九
-    }
-    else if(num == 10)
-    {
-        XRVoice_PlayRaw(0x03, 0x05); // 十
-    }
-    else if(num == 11)
-    {
-        XRVoice_PlayRaw(0x03, 0x06); // 十一
-    }
-    else if(num == 12)
-    {
-        XRVoice_PlayRaw(0x03, 0x07); // 十二
-    }
-    else if(num == 13)
-    {
-        XRVoice_PlayRaw(0x03, 0x08); // 十三
-    }
-    else if(num == 14)
-    {
-        XRVoice_PlayRaw(0x03, 0x09); // 十四
-    }
-    else if(num == 15)
-    {
-        XRVoice_PlayRaw(0x03, 0x0A); // 十五
-    }
-    else if(num == 16)
-    {
-        XRVoice_PlayRaw(0x03, 0x0B); // 十六
-    }
-    else if(num == 17)
-    {
-        XRVoice_PlayRaw(0x03, 0x0C); // 十七
-    }
-    else if(num == 18)
-    {
-        XRVoice_PlayRaw(0x04, 0x00); // 十八
-    }
-    else if(num == 19)
-    {
-        XRVoice_PlayRaw(0x04, 0x01); // 十九
-    }
-    else if(num == 20)
-    {
-        XRVoice_PlayRaw(0x04, 0x02); // 二十
-    }
-    else if(num == 21)
-    {
-        XRVoice_PlayRaw(0x04, 0x03); // 二十一
-    }
-    else if(num == 22)
-    {
-        XRVoice_PlayRaw(0x04, 0x04); // 二十二
-    }
-    else if(num == 23)
-    {
-        XRVoice_PlayRaw(0x04, 0x05); // 二十三
-    }
-    else if(num == 24)
-    {
-        XRVoice_PlayRaw(0x04, 0x06); // 二十四
-    }
-    else if(num == 25)
-    {
-        XRVoice_PlayRaw(0x04, 0x07); // 二十五
-    }
-    else if(num == 26)
-    {
-        XRVoice_PlayRaw(0x04, 0x08); // 二十六
-    }
-    else if(num == 27)
-    {
-        XRVoice_PlayRaw(0x04, 0x09); // 二十七
-    }
-    else if(num == 28)
-    {
-        XRVoice_PlayRaw(0x04, 0x10); // 二十八
-    }
-    else if(num == 29)
-    {
-        XRVoice_PlayRaw(0x04, 0x11); // 二十九
-    }
-    else if(num == 30)
-    {
-        XRVoice_PlayRaw(0x04, 0x12); // 三十
-    }
-    else if(num == 31)
-    {
-        XRVoice_PlayRaw(0x04, 0x13); // 三十一
-    }
-    else if(num == 32)
-    {
-        XRVoice_PlayRaw(0x04, 0x14); // 三十二
-    }
-    else if(num == 33)
-    {
-        XRVoice_PlayRaw(0x04, 0x15); // 三十三
-    }
-    else if(num == 34)
-    {
-        XRVoice_PlayRaw(0x04, 0x16); // 三十四
-    }
-    else if(num == 35)
-    {
-        XRVoice_PlayRaw(0x04, 0x17); // 三十五
-    }
-    else if(num == 36)
-    {
-        XRVoice_PlayRaw(0x04, 0x18); // 三十六
-    }
-    else if(num == 37)
-    {
-        XRVoice_PlayRaw(0x04, 0x19); // 三十七
-    }
-    else if(num == 38)
-    {
-        XRVoice_PlayRaw(0x04, 0x20); // 三十八
-    }
-    else if(num == 39)
-    {
-        XRVoice_PlayRaw(0x04, 0x21); // 三十九
-    }
-    else if(num == 40)
-    {
-        XRVoice_PlayRaw(0x04, 0x22); // 四十
-    }
-    else if(num == 41)
-    {
-        XRVoice_PlayRaw(0x04, 0x23); // 四十一
-    }
-    else if(num == 42)
-    {
-        XRVoice_PlayRaw(0x04, 0x24); // 四十二
-    }
-    else if(num == 43)
-    {
-        XRVoice_PlayRaw(0x04, 0x25); // 四十三
-    }
-    else if(num == 44)
-    {
-        XRVoice_PlayRaw(0x04, 0x26); // 四十四
-    }
-    else if(num == 45)
-    {
-        XRVoice_PlayRaw(0x04, 0x27); // 四十五
-    }
-    else if(num == 46)
-    {
-        XRVoice_PlayRaw(0x04, 0x28); // 四十六
-    }
-    else if(num == 47)
-    {
-        XRVoice_PlayRaw(0x04, 0x29); // 四十七
-    }
-    else if(num == 48)
-    {
-        XRVoice_PlayRaw(0x04, 0x30); // 四十八
-    }
-    else if(num == 49)
-    {
-        XRVoice_PlayRaw(0x04, 0x31); // 四十九
-    }
-    else if(num == 50)
-    {
-        XRVoice_PlayRaw(0x04, 0x32); // 五十
-    }
-    else if(num == 51)
-    {
-        XRVoice_PlayRaw(0x04, 0x33); // 五十一
-    }
-    else if(num == 52)
-    {
-        XRVoice_PlayRaw(0x04, 0x34); // 五十二
-    }
-    else if(num == 53)
-    {
-        XRVoice_PlayRaw(0x04, 0x35); // 五十三
-    }
-    else if(num == 54)
-    {
-        XRVoice_PlayRaw(0x04, 0x36); // 五十四
-    }
-    else if(num == 55)
-    {
-        XRVoice_PlayRaw(0x04, 0x37); // 五十五
-    }
-    else if(num == 56)
-    {
-        XRVoice_PlayRaw(0x04, 0x38); // 五十六
-    }
-    else if(num == 57)
-    {
-        XRVoice_PlayRaw(0x04, 0x39); // 五十七
-    }
-    else if(num == 58)
-    {
-        XRVoice_PlayRaw(0x04, 0x40); // 五十八
-    }
-    else if(num == 59)
-    {
-        XRVoice_PlayRaw(0x04, 0x41); // 五十九
-    }
-    else if(num == 60)
-    {
-        XRVoice_PlayRaw(0x04, 0x42); // 六十
+        uint8_t idx = num - 10;
+        XRVoice_PlayRaw(voice_numbers_10_60[idx].cmd_high, voice_numbers_10_60[idx].cmd_low);
     }
 }
 
-// 播放当前时间
+// 播放当前时间（格式：XX点XX分）
 void Voice_Play_Current_Time(void)
 {
     uint8_t hour, minute, second;
     Get_Current_Time(&hour, &minute, &second);
     
-    // 播放小时
-    if(hour == 10)
-    {
-        XRVoice_PlayRaw(0x03, 0x05); // 十
-    }
-    else if(hour == 11)
-    {
-        XRVoice_PlayRaw(0x03, 0x06); // 十一
-    }
-    else if(hour == 12)
-    {
-        XRVoice_PlayRaw(0x03, 0x07); // 十二
-    }
-    else if(hour == 13)
-    {
-        XRVoice_PlayRaw(0x03, 0x08); // 十三
-    }
-    else if(hour == 14)
-    {
-        XRVoice_PlayRaw(0x03, 0x09); // 十四
-    }
-    else if(hour == 15)
-    {
-        XRVoice_PlayRaw(0x03, 0x0A); // 十五
-    }
-    else if(hour == 16)
-    {
-        XRVoice_PlayRaw(0x03, 0x0B); // 十六
-    }
-    else if(hour == 17)
-    {
-        XRVoice_PlayRaw(0x03, 0x0C); // 十七
-    }
-    else if(hour == 18)
-    {
-        XRVoice_PlayRaw(0x04, 0x00); // 十八
-    }
-    else if(hour == 19)
-    {
-        XRVoice_PlayRaw(0x04, 0x01); // 十九
-    }
-    else if(hour == 20)
-    {
-        XRVoice_PlayRaw(0x04, 0x02); // 二十
-    }
-    else if(hour == 21)
-    {
-        XRVoice_PlayRaw(0x04, 0x03); // 二十一
-    }
-    else if(hour == 22)
-    {
-        XRVoice_PlayRaw(0x04, 0x04); // 二十二
-    }
-    else if(hour == 23)
-    {
-        XRVoice_PlayRaw(0x04, 0x05); // 二十三
-    }
-    else if(hour == 0)
-    {
-        XRVoice_PlayRaw(0x02, 0x08); // 零
-    }
-    else
-    {
-        // 1-9直接播放数字
-        Voice_Play_Number(hour);
-    }
+    // 播放小时 (0-23)
+    Voice_Play_Number_Full(hour);
     vTaskDelay(pdMS_TO_TICKS(150));
     
     // 播放"点"
@@ -631,7 +376,40 @@ void Voice_Play_Current_Time(void)
 	XRVoice_PlayRaw(0x10, 0x01);
 }
 
-// 播放当前时间（带时间段）
+// 播放时间段（凌晨、早上、中午、下午、傍晚、晚上）
+void Voice_Play_Period(uint8_t hour)
+{
+    uint8_t idx;
+    
+    if(hour < 5)
+    {
+        idx = 0; // 凌晨
+    }
+    else if(hour >= 5 && hour < 12)
+    {
+        idx = 1; // 早上
+    }
+    else if(hour >= 12 && hour < 14)
+    {
+        idx = 2; // 中午
+    }
+    else if(hour >= 14 && hour < 18)
+    {
+        idx = 3; // 下午
+    }
+    else if(hour >= 18 && hour < 20)
+    {
+        idx = 4; // 傍晚
+    }
+    else
+    {
+        idx = 5; // 晚上
+    }
+    
+    XRVoice_PlayRaw(voice_periods[idx].cmd_high, voice_periods[idx].cmd_low);
+}
+
+// 播放当前时间，先播报时间段（早上12点30分）
 void Voice_Play_Current_Time_With_Period(void)
 {
     uint8_t hour, minute, second;
@@ -641,41 +419,18 @@ void Voice_Play_Current_Time_With_Period(void)
     display_mode = 1;
     
     // 根据时间判断时间段
-    if(hour < 5)
-    {
-        XRVoice_PlayRaw(0x08, 0x03); // 现在是凌晨
-    }
-    else if(hour >= 5 && hour < 9)
-    {
-        XRVoice_PlayRaw(0x08, 0x04); // 现在是早上
-    }
-    else if(hour >= 9 && hour < 12)
-    {
-        // 上午没有单独的语音，使用早上
-        XRVoice_PlayRaw(0x08, 0x04); // 现在是早上
-    }
-    else if(hour >= 12 && hour < 14)
-    {
-        XRVoice_PlayRaw(0x08, 0x05); // 现在是中午
-    }
-    else if(hour >= 14 && hour < 18)
-    {
-        XRVoice_PlayRaw(0x08, 0x06); // 现在是下午
-    }
-    else if(hour >= 18 && hour < 20)
-    {
-        XRVoice_PlayRaw(0x08, 0x07); // 现在是傍晚
-    }
-    else
-    {
-        XRVoice_PlayRaw(0x08, 0x08); // 现在是晚上
-    }
+    Voice_Play_Period(hour);
     vTaskDelay(pdMS_TO_TICKS(500));
     
     // 播放当前时间
     Voice_Play_Current_Time();
 }
 
+// ==================================================
+// 温湿度传感器函数
+// ==================================================
+
+// 读取DHT11温湿度传感器数据
 uint8_t ReadDHT11Data(void)
 {
     uint8_t retry = 3;
@@ -706,6 +461,7 @@ uint8_t ReadDHT11Data(void)
     return success;
 }
 
+// 检查温湿度变化，触发上传
 void CheckAndTriggerUpload(void)
 {
     static TickType_t last_upload_tick = 0;
@@ -735,6 +491,7 @@ void CheckAndTriggerUpload(void)
     }
 }
 
+// 快速上传温湿度数据
 void Fast_UploadData(uint8_t type)
 {
     char upload_payload[32];
@@ -757,6 +514,11 @@ void Fast_UploadData(uint8_t type)
     g_upload_display_tick = xTaskGetTickCount();
 }
 
+// ==================================================
+// 时间管理函数
+// ==================================================
+
+// 更新时间，每秒加1
 void Update_Time(void)
 {
     if(xTimeMutex != NULL) {
@@ -784,6 +546,7 @@ void Update_Time(void)
     }
 }
 
+// 获取当前时间（小时、分钟、秒）
 void Get_Current_Time(uint8_t *hour, uint8_t *minute, uint8_t *second)
 {
     if(xTimeMutex != NULL) {
@@ -798,6 +561,7 @@ void Get_Current_Time(uint8_t *hour, uint8_t *minute, uint8_t *second)
     }
 }
 
+// 通过蓝牙校准时间
 uint8_t Calibrate_Time(uint8_t new_hour, uint8_t new_minute, uint8_t new_second, uint8_t force)
 {
     static uint8_t first_sync = 1;
@@ -838,6 +602,7 @@ uint8_t Calibrate_Time(uint8_t new_hour, uint8_t new_minute, uint8_t new_second,
     return need_update;
 }
 
+// 检查时间同步是否还有效
 uint8_t Is_Sync_Valid(void)
 {
     if(g_sync_status == 0) return 0;
@@ -850,6 +615,7 @@ uint8_t Is_Sync_Valid(void)
     return 1;
 }
 
+// 检查是否到达闹钟时间
 uint8_t Check_Alarm_Time(void)
 {
     uint8_t hour, minute, second;
@@ -870,11 +636,17 @@ uint8_t Check_Alarm_Time(void)
     return 0;
 }
 
+// 刷新OLED屏幕显示
 void UpdateDisplay(void)
 {
     OLED_Clear();
 }
 
+// ==================================================
+// 任务创建和管理
+// ==================================================
+
+// 创建所有FreeRTOS任务
 void AppTaskCreate(void)
 {
     taskENTER_CRITICAL();
@@ -892,6 +664,11 @@ void AppTaskCreate(void)
     taskEXIT_CRITICAL();
 }
 
+// ==================================================
+// 各个任务函数
+// ==================================================
+
+// 重量传感器任务 - 读取重量、检测空盒
 void HX711_Task(void* parameter)
 {
     TickType_t xLastWakeTime = xTaskGetTickCount();
@@ -901,7 +678,7 @@ void HX711_Task(void* parameter)
     static uint8_t trigger_delay = 0;          // 触发延迟计数
     static uint8_t empty_box_alarm = 0;
     static uint32_t last_play_tick = 0;        // 上次播放时间
-    static s32 filtered_weight = 0;            // 一阶低通滤波缓存，整数存储
+    static float filtered_weight = 0.0f;       // 一阶低通滤波缓存，保留小数重量
     static uint8_t sync_counter = 0;            // 兜底同步计数器：200ms一次，强制同步一次
     
     while (1)
@@ -910,13 +687,12 @@ void HX711_Task(void* parameter)
         
         portENTER_CRITICAL();
         Get_Weight();
-        s32 raw_weight = Weight_Shiwu;
+        float raw_weight = Weight_Shiwu;
         portEXIT_CRITICAL();
         
         // 一阶低通滤波：新值占75%权重，兼顾响应速度和平滑度
         filtered_weight = (filtered_weight * 1 + raw_weight * 3) / 4;
-        // 重量变化小于1g直接保持旧值，彻底消抖
-        if(abs(filtered_weight - weight) >= 1) {
+        if(fabsf(filtered_weight - weight) >= 0.1f) {
             weight = filtered_weight;
         }
         
@@ -926,7 +702,7 @@ void HX711_Task(void* parameter)
             sync_counter++;
             if(sync_counter >= 10) { // 200ms/次 × 10次 = 2秒
                 // 只有当前重量和上次上传的重量差超过1g才触发上传，相同数据不重复传
-                if(abs(weight - last_upload_weight) >= 1) {
+                if(fabsf(weight - last_upload_weight) >= 1.0f) {
                     g_upload_trigger_weight = 1;
                 }
                 sync_counter = 0;
@@ -1020,8 +796,9 @@ static void Voice_Command_Callback(uint8_t cmd_type, uint8_t cmd_id)
     HandleVoiceCommand(cmd_type, cmd_id);
 }
 
-// ==================== 语音任务 ====================
+// 语音任务 - 处理语音识别和播放
 extern SemaphoreHandle_t xVoiceSemaphore;
+static void Voice_Command_Callback(uint8_t cmd_type, uint8_t cmd_id);
 
 void Voice_Task(void* parameter)
 {
@@ -1054,6 +831,7 @@ void Voice_Task(void* parameter)
     }
 }
 
+// 温湿度任务 - 定时读取DHT11传感器
 void DHT11_Task(void* parameter)
 {
     TickType_t xLastWakeTime = xTaskGetTickCount();
@@ -1093,12 +871,14 @@ void DHT11_Task(void* parameter)
     }
 }
 
+// 显示任务 - 更新OLED屏幕
 void Display_Task(void* parameter)
 {
     TickType_t xLastWakeTime = xTaskGetTickCount();
     const TickType_t xFrequency = pdMS_TO_TICKS(50); // 从100ms改到50ms，加快蓝牙指令响应速度
     
-    uint32_t last_temp = 0xFFFFFFFF, last_humid = 0xFFFFFFFF, last_weight = 0xFFFFFFFF;
+    uint32_t last_temp = 0xFFFFFFFF, last_humid = 0xFFFFFFFF;
+    int32_t last_weight = 0x7FFFFFFF;
     uint8_t last_mode = 0xFF;
     uint8_t last_has_bt = 0xFF;
     uint8_t force_refresh = 1;
@@ -1190,7 +970,8 @@ void Display_Task(void* parameter)
             {
                 uint32_t current_temp = (uint32_t)(temperature * 10);
                 uint32_t current_humid = (uint32_t)(humidity * 10);
-                uint32_t current_weight_val = (uint32_t)weight;
+                int32_t current_weight_val = (int32_t)(weight * 10.0f + (weight >= 0 ? 0.5f : -0.5f));
+                char weight_str[17];
                 
                 uint8_t data_changed = (current_temp != last_temp) || 
                                        (current_humid != last_humid) ||
@@ -1225,15 +1006,8 @@ void Display_Task(void* parameter)
                     OLED_ShowString(2, 7, "%    ");
                     
                     // 重量显示
-                    OLED_ShowString(3, 1, "W:");
-                    if(weight < 0) {
-                        OLED_ShowString(3, 3, "-");
-                        OLED_ShowNum(3, 4, (uint32_t)(-weight), 5);
-                    } else {
-                        OLED_ShowString(3, 3, " ");
-                        OLED_ShowNum(3, 4, (uint32_t)weight, 5);
-                    }
-                    OLED_ShowString(3, 9, "g    ");
+                    sprintf(weight_str, "W:%.1fg       ", weight);
+                    OLED_ShowString(3, 1, weight_str);
                     
                     // 上传状态显示
                     if(upload_status == UPLOAD_TYPE_TEMP) {
@@ -1469,6 +1243,7 @@ void Display_Task(void* parameter)
     }
 }
 
+// 上传任务 - 定时处理上传队列
 void Upload_Task(void* parameter)
 {
     while (1)
@@ -1478,6 +1253,7 @@ void Upload_Task(void* parameter)
     }
 }
 
+// 时间任务 - 更新时间、处理闹钟、检测光敏
 void Time_Task(void* parameter)
 {
     uint8_t alarm_triggered = 0;
@@ -1524,11 +1300,15 @@ void Time_Task(void* parameter)
         // 触发状态上传
         CheckAndTriggerUpload_Status();
         
-        // 1. 检测光敏变化
+        // 1. 检测光敏变化（只在亮变暗时触发）
         uint8_t current_light = LightSenor_Get();
-        if(current_light != g_last_light_state)
+        if(g_last_light_state == 0 && current_light == 1)
         {
             g_light_changed = 1;
+            g_last_light_state = current_light;
+        }
+        else if(current_light != g_last_light_state)
+        {
             g_last_light_state = current_light;
         }
         
@@ -1546,7 +1326,15 @@ void Time_Task(void* parameter)
                 g_alarm_servo_state = 1; // 进入等待第一次遮挡开盖状态
                 g_alarm_start_tick = xTaskGetTickCount();
                 g_last_alarm_play_tick = xTaskGetTickCount();
+                g_last_led_toggle_tick = xTaskGetTickCount();
                 g_light_changed = 0;
+                
+                // 检查时间：19点-8点常亮
+                uint8_t hour, minute, second;
+                Get_Current_Time(&hour, &minute, &second);
+                if(hour >= 19 || hour < 8) {
+                    LED0_ON();
+                }
                 
                 // 代码驱动播放对应的闹钟语音
                 // 闹钟1: 早上好，请记得吃药
@@ -1566,8 +1354,17 @@ void Time_Task(void* parameter)
         // 4. 处理闹钟持续状态
         if(g_alarm_ringing)
         {
-            // 闪烁LED，每200ms翻转一次 = 2.5Hz
-            LED0_Turn();
+            // 检查时间：19点-8点常亮，其他时间闪烁
+            uint8_t hour, minute, second;
+            Get_Current_Time(&hour, &minute, &second);
+            
+            if(hour >= 19 || hour < 8) {
+                // 19点-8点：LED常亮
+                LED0_ON();
+            } else {
+                // 其他时间：LED闪烁
+                LED0_Turn();
+            }
             
             // 检测到光敏变化（遮挡事件）
             if(g_light_changed)
@@ -1635,6 +1432,41 @@ void Key_Task(void* parameter)
         current_mode = display_mode;
         taskEXIT_CRITICAL();
         
+        // ========== 任意按键处理闹钟（打开/关闭盖子） ==========
+        if(g_alarm_ringing)  // 如果闹钟正在响
+        {
+            if(Key_GetPress(KEY1) || Key_GetPress(KEY2) || 
+               Key_GetPress(KEY3) || Key_GetPress(KEY4))
+            {
+                // 第一次按键：打开盖子
+                if(g_alarm_servo_state == 1)
+                {
+                    Servo_Open();
+                    g_alarm_servo_state = 2; // 进入等待第二次按键状态
+                    if(display_mode == 0) {
+                        OLED_ShowString(4, 1, "Lid opened!      ");
+                    }
+                }
+                // 第二次按键：关闭盖子+停止闹钟
+                else if(g_alarm_servo_state == 2)
+                {
+                    // 停止闹钟
+                    g_alarm_ringing = 0;
+                    g_alarm_servo_state = 0;
+                    
+                    // 关闭舵机
+                    Servo_Close();
+                    
+                    // 关闭LED
+                    LED0_OFF();
+                    
+                    if(display_mode == 0) {
+                        OLED_ShowString(4, 1, "Medicine taken! ");
+                    }
+                }
+            }
+        }
+        
 		// ========== 任意按键停止空盒报警 ==========
         if(g_empty_box_alarm_active)  // 如果空盒报警正在响
         {
@@ -1643,7 +1475,6 @@ void Key_Task(void* parameter)
             {
                 g_stop_empty_box_alarm = 1;  // 设置停止标志
                         Servo_Close();
-                // 移除阻塞延迟，按键扫描本身已带消抖
             }
         }
         // PB8 - 切换页面（所有屏幕有效）
@@ -1664,10 +1495,9 @@ void Key_Task(void* parameter)
             uint8_t new_mode = display_mode;
             taskEXIT_CRITICAL();
             
-            // 如果是从编辑模式退出，先播报修改完成
+            // 如果是从闹钟编辑模式退出，保存到Flash
             if(edit_was_active) {
-                XRVoice_PlayRaw(0x10, 0x05); // 播报修改完成
-                // 移除等待播报的400ms阻塞，语音播放是异步的不影响按键响应
+                HC06_SaveToFlash();
             }
             
             // 播报当前界面
@@ -1728,8 +1558,11 @@ void Key_Task(void* parameter)
                     // 音量编辑完成，退出编辑模式
                     g_edit_mode = EDIT_MODE_NONE;
                     
-                    // 播报修改完成
-                    XRVoice_PlayRaw(0x10, 0x05);
+                    // 保存闹钟到Flash
+                    HC06_SaveToFlash();
+                    
+
+
                 }
                 taskEXIT_CRITICAL();
             }

@@ -52,3 +52,4 @@
 .\objects\hc06.o: .\Hardware\esp8266.h
 .\objects\hc06.o: .\Hardware\xrvoice.h
 .\objects\hc06.o: .\Hardware\key.h
+.\objects\hc06.o: Hardware\flash_storage.h

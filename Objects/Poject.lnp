@@ -40,6 +40,7 @@
 ".\objects\pwm.o"
 ".\objects\xrvoice.o"
 ".\objects\hc06.o"
+".\objects\flash_storage.o"
 ".\objects\main.o"
 ".\objects\stm32f10x_it.o"
 ".\objects\app_tasks.o"

@@ -47,6 +47,7 @@
 .\objects\app_tasks.o: .\Hardware\dht11.h
 .\objects\app_tasks.o: .\Hardware\esp8266.h
 .\objects\app_tasks.o: .\Hardware\xrvoice.h
+.\objects\app_tasks.o: .\Hardware\usart.h
 .\objects\app_tasks.o: .\Hardware\hc06.h
 .\objects\app_tasks.o: .\Hardware\key.h
 .\objects\app_tasks.o: D:\Keil5 stm32\ARM\ARMCC\Bin\..\include\stdio.h

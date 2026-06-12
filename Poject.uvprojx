@@ -812,6 +812,16 @@
               <FileType>5</FileType>
               <FilePath>.\Hardware\hc06.h</FilePath>
             </File>
+            <File>
+              <FileName>flash_storage.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Hardware\flash_storage.c</FilePath>
+            </File>
+            <File>
+              <FileName>flash_storage.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\Hardware\flash_storage.h</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

@@ -164,7 +164,7 @@ void ESP8266_Init(void)
 
 
 // 连接MQTT服务器
-uint8_t ESP_ConnectMQTT(void)
+void ESP_ConnectMQTT(void)
 {
     // 配置MQTT客户端信息
     char cmd[256];

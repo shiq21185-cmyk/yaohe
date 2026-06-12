@@ -6,8 +6,8 @@
 #include "FreeRTOS.h"  
 #include "task.h" 
 #include "semphr.h"    
+#include "usart.h"   
 
-// ???????
 #define XRVOICE_RX_BUFFER_SIZE  64
 
 // ==================== 命令类型定义 ====================

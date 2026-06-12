@@ -6,7 +6,6 @@ void PWM_Init(void)
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO, ENABLE);
     
-    // 关键：重映射必须在GPIO配置前
     GPIO_PinRemapConfig(GPIO_Remap_SWJ_JTAGDisable, ENABLE);
     GPIO_PinRemapConfig(GPIO_PartialRemap1_TIM2, ENABLE);
     
@@ -34,7 +33,6 @@ void PWM_Init(void)
     TIM_OCInitStructure.TIM_Pulse = 1500;
     TIM_OC2Init(TIM2, &TIM_OCInitStructure);
     
-    // 关键：添加这两行！
     TIM_OC2PreloadConfig(TIM2, TIM_OCPreload_Enable);
     TIM_ARRPreloadConfig(TIM2, ENABLE);
     

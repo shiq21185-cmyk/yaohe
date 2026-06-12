@@ -106,8 +106,8 @@ void OLED_WriteData(uint8_t Data)
 void OLED_SetCursor(uint8_t Y, uint8_t X)
 {
 	OLED_WriteCommand(0xB0 | Y);					//设置Y位置
-	OLED_WriteCommand(0x10 | ((X & 0xF0) >> 4));	//设置X位置高4位
-	OLED_WriteCommand(0x00 | (X & 0x0F));			//设置X位置低4位
+	OLED_WriteCommand(0x10 | (((X + 2) & 0xF0) >> 4));	//设置X位置高4位，+2是SH1106偏移
+	OLED_WriteCommand(0x00 | ((X + 2) & 0x0F));			//设置X位置低4位，+2是SH1106偏移
 }
 
 /**
@@ -472,7 +472,7 @@ void OLED_Init(void)
 	
 	OLED_WriteCommand(0xC8);	//设置上下方向，0xC8正常 0xC0上下反置
 
-	OLED_WriteCommand(0xDA);	//设置COM引脚硬件配置
+	OLED_WriteCommand(0xDA);	//设置COM引脚硬件配置（SH1106用0x12）
 	OLED_WriteCommand(0x12);
 	
 	OLED_WriteCommand(0x81);	//设置对比度控制

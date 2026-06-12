@@ -21,7 +21,7 @@ void Key_Init(void)
     
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
     
-    // 下拉输入模式（保持原来的）
+    // 下拉输入模式
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPD;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
     
@@ -59,7 +59,7 @@ void Key_Init(void)
     keys[KEY4].GPIO_Pin = KEY4_GPIO_PIN;
 }
 
-// 下拉模式下，高电平表示按下（保持原来的逻辑）
+// 下拉模式下，高电平表示按下
 static uint8_t Key_ReadPin(uint8_t key_num)
 {
     if(key_num >= KEY_NUM) return 0;

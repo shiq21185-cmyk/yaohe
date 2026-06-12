@@ -41,6 +41,7 @@
 .\objects\xrvoice.o: .\FreeRTOS\include\list.h
 .\objects\xrvoice.o: .\FreeRTOS\include\semphr.h
 .\objects\xrvoice.o: .\FreeRTOS\include\queue.h
+.\objects\xrvoice.o: Hardware\usart.h
 .\objects\xrvoice.o: D:\Keil5 stm32\ARM\ARMCC\Bin\..\include\string.h
 .\objects\xrvoice.o: .\Systerm\Delay.h
 .\objects\xrvoice.o: Hardware\OLED.h

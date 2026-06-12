@@ -1,156 +1,164 @@
 #include "stm32f10x.h"
 #include "hx711.h"
 #include "Delay.h"
+
 u32 HX711_Buffer;
 u32 Weight_Maopi;
-s32 Weight_Shiwu;
-u8  Flag_Error=0;
+float Weight_Shiwu;
+u8 Flag_Error = 0;
 
+/*
+ * Weight_Maopi 对应教程里的 reset（空载值）
+ * HX711_CAL_RAW_100G 对应教程里的 Weights_100（100g时读数）
+ * 重量公式：weight = (value - reset) * 100 / (Weights_100 - reset)
+ */
+ 
+#define HX711_CAL_WEIGHT_G       100.0f
+#define HX711_CAL_RAW_100G       8493860UL
 
-#define GapValue 550
+#define HX711_SAMPLE_COUNT       8
+#define HX711_ZERO_DEADBAND_G    0.2f
+#define HX711_MAX_WEIGHT_G       5000.0f
 
+static u32 HX711_ReadFilteredRaw(void);
 
 void Init_HX711pin(void)
 {
 	GPIO_InitTypeDef GPIO_InitStructure;
+
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
 
-	//HX711_SCK
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_14;                
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;         
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;        
-	GPIO_Init(GPIOB, &GPIO_InitStructure);                
-	
-	//HX711_DOUT
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_15;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;     
-  GPIO_Init(GPIOB, &GPIO_InitStructure);  
-	
-  GPIO_SetBits(GPIOB,GPIO_Pin_14);                
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_14;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_Init(GPIOB, &GPIO_InitStructure);
+
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_15;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
+	GPIO_Init(GPIOB, &GPIO_InitStructure);
+
+	GPIO_SetBits(GPIOB, GPIO_Pin_14);
 }
 
-u32 HX711_Read(void)	
+u32 HX711_Read(void)
 {
-	unsigned long count; 
-	unsigned char i; 
+	unsigned long count;
+	unsigned char i;
 
 	Delay_us(1);
-  HX711_SCK_LOW(); 
-  count=0; 
-  while(HX711_DOUT_READ()==1); 
-  for(i=0;i<24;i++)
-	{ 
-	  HX711_SCK_HIGH(); 
-	  count=count<<1; 
+	HX711_SCK_LOW();
+	count = 0;
+
+	while (HX711_DOUT_READ() == 1);
+
+	for (i = 0; i < 24; i++)
+	{
+		HX711_SCK_HIGH();
+		count = count << 1;
 		Delay_us(1);
-		HX711_SCK_LOW(); 
-	  if(HX711_DOUT_READ()==1)
-		count++; 
+		HX711_SCK_LOW();
+		if (HX711_DOUT_READ() == 1)
+		{
+			count++;
+		}
 		Delay_us(1);
-	} 
-  	HX711_SCK_HIGH(); 
-  count=count^0x800000;
+	}
+
+	HX711_SCK_HIGH();
+	count = count ^ 0x800000;
 	Delay_us(1);
-	HX711_SCK_LOW();  
-	return(count);
+	HX711_SCK_LOW();
+
+	return count;
 }
 
 void Get_Maopi(void)
 {
-    u32 sum = 0;
-    u8 i;
-    
-    // ��ȡ5��ȡƽ�����õ����ȶ���ȥƤֵ
-    for(i = 0; i < 5; i++)
-    {
-        sum += HX711_Read();
-        Delay_ms(10);
-    }
-    Weight_Maopi = sum / 5;
-} 
+	u32 sum = 0;
+	u8 i;
 
+	for (i = 0; i < HX711_SAMPLE_COUNT; i++)
+	{
+		sum += HX711_Read();
+		Delay_ms(10);
+	}
+
+	Weight_Maopi = sum / HX711_SAMPLE_COUNT;
+}
+
+static u32 HX711_ReadFilteredRaw(void)
+{
+	u32 samples[HX711_SAMPLE_COUNT];
+	u32 sum = 0;
+	u32 max;
+	u32 min;
+	u8 i;
+
+	for (i = 0; i < HX711_SAMPLE_COUNT; i++)
+	{
+		HX711_Buffer = HX711_Read();
+		samples[i] = HX711_Buffer;
+		Delay_ms(2);
+	}
+
+	max = samples[0];
+	min = samples[0];
+
+	for (i = 0; i < HX711_SAMPLE_COUNT; i++)
+	{
+		sum += samples[i];
+		if (samples[i] > max)
+		{
+			max = samples[i];
+		}
+		if (samples[i] < min)
+		{
+			min = samples[i];
+		}
+	}
+
+	/* 去掉一个最大值和一个最小值，减少瞬时跳动对精度的影响 */
+	sum = sum - max - min;
+	return sum / (HX711_SAMPLE_COUNT - 2);
+}
 
 void Get_Weight(void)
 {
-    s32 samples[16];
-    u32 sum = 0;
-    u8 i;
-    s32 diff;
-    
-    static s32 last_stable_weight = 0;
-    static u8 stable_count = 0;
-    
-    // 采样8次，平衡精度和速度
-    for(i = 0; i < 8; i++)
-    {
-        HX711_Buffer = HX711_Read();
-        samples[i] = (s32)HX711_Buffer - (s32)Weight_Maopi;
-    }
-    
-    // 限幅滤波：去掉1个最大值和1个最小值
-    s32 max = samples[0], min = samples[0];
-    for(i = 0; i < 8; i++)
-    {
-        sum += samples[i];
-        if(samples[i] > max) max = samples[i];
-        if(samples[i] < min) min = samples[i];
-    }
-    // 去掉极值后平均
-    sum = sum - max - min;
-    diff = sum / 6;
-    
-    // 异常采样过滤：差值超出合理范围直接丢弃本次采样
-    if(diff < -2000 || diff > (s32)(GapValue * 5000))
-    {
-        return;
-    }
-    
-    // 计算重量（整数精度）
-    s32 weight_temp = 0;
-    if(diff > 0)
-    {
-        weight_temp = diff / GapValue;
-    }
-    else
-    {
-        weight_temp = 0;
-    }
-    
-    // 小重量阈值
-    if(weight_temp < 1)
-    {
-        weight_temp = 0;
-    }
-    
-    // 异常值二次过滤：重量超过5kg直接丢弃
-    if(weight_temp > 5000)
-    {
-        return;
-    }
-    
-    // 稳定防抖逻辑
-    s32 weight_diff = abs(weight_temp - last_stable_weight);
-    
-    // 大重量变化（>1g）直接响应
-    if(weight_diff > 1)
-    {
-        Weight_Shiwu = weight_temp;
-        last_stable_weight = weight_temp;
-        stable_count = 0;
-    }
-    // 中小变化：连续2次偏差小于1g才更新
-    else if(weight_diff <= 1)
-    {
-        stable_count++;
-        if(stable_count >= 2)
-        {
-            Weight_Shiwu = weight_temp;
-            stable_count = 2;
-        }
-    }
-    else
-    {
-        stable_count = 0;
-        last_stable_weight = weight_temp;
-    }
+	u32 raw_value;
+	u32 cal_diff_count;
+	u32 diff_count;
+	float weight_temp;
+
+	raw_value = HX711_ReadFilteredRaw();
+
+	if (raw_value <= Weight_Maopi)
+	{
+		Weight_Shiwu = 0.0f;
+		return;
+	}
+
+	if (HX711_CAL_RAW_100G <= Weight_Maopi)
+	{
+		Flag_Error = 1;
+		Weight_Shiwu = 0.0f;
+		return;
+	}
+
+	Flag_Error = 0;
+	diff_count = raw_value - Weight_Maopi;
+	cal_diff_count = HX711_CAL_RAW_100G - Weight_Maopi;
+	weight_temp = ((float)diff_count * HX711_CAL_WEIGHT_G) / (float)cal_diff_count;
+
+	if (weight_temp < HX711_ZERO_DEADBAND_G)
+	{
+		weight_temp = 0.0f;
+	}
+
+	if (weight_temp > HX711_MAX_WEIGHT_G)
+	{
+		Weight_Shiwu = HX711_MAX_WEIGHT_G;
+		return;
+	}
+
+	Weight_Shiwu = weight_temp;
 }

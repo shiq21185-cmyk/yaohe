@@ -60,7 +60,7 @@ extern volatile uint8_t g_need_upload;
 extern volatile uint8_t display_mode;
 extern float temperature;
 extern float humidity;
-extern s32 weight;
+extern float weight;
 extern uint8_t tare_done;
 extern uint8_t dht11_last_status;
 extern volatile uint8_t current_hour;
