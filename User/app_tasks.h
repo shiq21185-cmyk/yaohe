@@ -37,6 +37,20 @@ typedef enum {
     SERVO_CMD_STOP          // 停止当前动作
 } Servo_Command_t;
 
+// ==================== 任务栈深（单位：字，1字=4字节） ====================
+// 取值依据见 app_tasks.c 中「应用任务的静态内存」注释：
+// 由 armlink --callgraph 的静态最大调用深度 + 64B Cortex-M3 上下文帧，
+// 再留约 2 倍余量得出。
+#define HX711_TASK_STACK_WORDS        128   /* 2048 ->  512 B */
+#define DISPLAY_TASK_STACK_WORDS      192   /* 2048 ->  768 B */
+#define DHT11_TASK_STACK_WORDS        128   /* 2048 ->  512 B */
+#define UPLOAD_TASK_STACK_WORDS       256   /* 1024 -> 1024 B */
+#define KEY_TASK_STACK_WORDS          128   /* 1024 ->  512 B */
+#define TIME_TASK_STACK_WORDS         128   /* 2048 ->  512 B */
+#define SERVO_TASK_STACK_WORDS         96   /* 1024 ->  384 B */
+#define VOICE_TASK_STACK_WORDS        128   /* 1024 ->  512 B */
+#define APPTASKCREATE_STACK_WORDS     128   /* 1024 ->  512 B */
+
 // 外部变量
 extern volatile uint8_t g_servo_cmd;           // 当前舵机命令
 extern volatile uint8_t g_servo_state;       // 0=关闭, 1=打开
@@ -83,6 +97,10 @@ extern StackType_t Timer_Task_Stack[configTIMER_TASK_STACK_DEPTH];
 extern StaticTask_t Idle_Task_TCB;
 extern StaticTask_t Timer_Task_TCB;
 
+// 任务创建任务自身的静态内存（在 main.c 里用 xTaskCreateStatic 创建）
+extern StackType_t AppTaskCreate_Stack[];
+extern StaticTask_t AppTaskCreate_TCB;
+
 extern TaskHandle_t AppTaskCreate_Handle;
 extern TaskHandle_t HX711_Task_Handle;
 extern TaskHandle_t DHT11_Task_Handle;
@@ -119,6 +137,8 @@ void CheckAndTriggerUpload(void);
 void CheckAndTriggerUpload_Weight(void);
 void CheckAndTriggerUpload_Status(void);
 void ProcessUploadQueue(void);
+
+void StackWatermarkReport(void);
 
 extern volatile HC06_Alarm_t g_bt_alarms[3];
 extern volatile uint8_t g_bt_alarm_updated;

@@ -50,57 +50,12 @@ void NMI_Handler(void)
 {
 }
 
-/**
-  * @brief  This function handles Hard Fault exception.
-  * @param  None
-  * @retval None
-  */
-void HardFault_Handler(void)
-{
-  /* Go to infinite loop when Hard Fault exception occurs */
-  while (1)
-  {
-  }
-}
+/* 故障异常处理函数（HardFault / MemManage / BusFault / UsageFault）已移除。
+ * 它们原来只是 while(1) 死循环，会把崩溃变成静默挂死，并且与崩溃追踪器
+ * BSP/cm_backtrace_lite.c 里提供的同名处理函数冲突（重复符号）。
+ * 现在由 BSP/cm_backtrace_lite.c 统一接管，通过 USART1 打印崩溃现场。
+ * 若把 CM_BACKTRACE_PROVIDE_HANDLER 设为 0，需要在这里恢复这四个空函数。 */
 
-/**
-  * @brief  This function handles Memory Manage exception.
-  * @param  None
-  * @retval None
-  */
-void MemManage_Handler(void)
-{
-  /* Go to infinite loop when Memory Manage exception occurs */
-  while (1)
-  {
-  }
-}
-
-/**
-  * @brief  This function handles Bus Fault exception.
-  * @param  None
-  * @retval None
-  */
-void BusFault_Handler(void)
-{
-  /* Go to infinite loop when Bus Fault exception occurs */
-  while (1)
-  {
-  }
-}
-
-/**
-  * @brief  This function handles Usage Fault exception.
-  * @param  None
-  * @retval None
-  */
-void UsageFault_Handler(void)
-{
-  /* Go to infinite loop when Usage Fault exception occurs */
-  while (1)
-  {
-  }
-}
 
 /**
   * @brief  This function handles SVCall exception.

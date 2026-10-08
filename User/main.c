@@ -17,18 +17,44 @@
 #include "app_tasks.h"
 #include "Servo.h"
 #include "PWM.h"
+#include "bsp_log.h"
+#include "bsp_selftest.h"
+#include "cm_backtrace_lite.h"
 
-// 外部时间互斥量
+/* 外部时间互斥量 */
 extern SemaphoreHandle_t xTimeMutex;
 
 int main(void)
 {
     BaseType_t xReturn = pdPASS;
 
+    /* 中断必须最早打开：标准库启动代码在进入 main 前关了全局中断，
+     * 而下面的自检与初始化都依赖 SysTick / USART 中断能进得来。 */
+    __enable_irq();
+
+    /* 开启子异常分类与除零陷阱：必须在任何外设初始化之前调用 */
+    cm_backtrace_init();
+
+    /* 日志口先于一切初始化：只配 PA9，不注册中断，
+     * 之后 USART1_Init() 再接管为 HC-06 正常收发。 */
+    BSP_Log_Init();
+    BSP_Log_Puts("\r\n\r\n=== MEDBOX BSP BOOT ===\r\n");
+    BSP_Log_Puts("build: BSP static-tasks heap-1K RAM-under-12K\r\n");
+
+    /* 内存自检：确认 0x20004C00-0x2000C000 可读写、无混叠。
+     * 放在 RTOS 堆与任务创建之前，此时该区间无人使用，可以安全破坏。 */
+    if (!BSP_SelfTest_Run())
+    {
+        BSP_SelfTest_Report();
+        BSP_Log_Puts("RAM SELF-TEST FAILED - halting\r\n");
+        while (1) { }
+    }
+    BSP_SelfTest_Report();
+
     LED_Init();
     OLED_Init();
 
-    // OLED互斥量
+    /* OLED互斥量 */
     extern SemaphoreHandle_t xOLEDMutex;
     xOLEDMutex = xSemaphoreCreateMutex();
     if(xOLEDMutex == NULL)
@@ -37,7 +63,7 @@ int main(void)
         while(1);
     }
 
-    // 时间互斥量
+    /* 时间互斥量 */
     xTimeMutex = xSemaphoreCreateMutex();
     if(xTimeMutex == NULL)
     {
@@ -48,8 +74,8 @@ int main(void)
     TIM4_Init();
 
     HC06_Init();
-    USART1_Init(9600);      // USART1初始化
-    USART2_Init(115200);    // USART2连接ESP8266
+    USART1_Init(9600);      /* USART1初始化 */
+    USART2_Init(115200);    /* USART2连接ESP8266 */
 
     Key_Init();
 
@@ -75,7 +101,15 @@ int main(void)
     weight = Weight_Shiwu;
     UpdateDisplay();
 
-    xReturn = xTaskCreate((TaskFunction_t)AppTaskCreate, "AppTaskCreate", 256, NULL, 1, &AppTaskCreate_Handle);
+    /* 外设初始化全部走完后才吐通过令牌，
+     * AutoDebug 以串口是否收到该令牌判定成功。 */
+    BSP_Log_Puts("[ALL TESTS PASSED]\r\n");
+
+    /* 任务创建任务本身也用静态内存，堆里不再有任务栈与TCB。 */
+    AppTaskCreate_Handle = xTaskCreateStatic((TaskFunction_t)AppTaskCreate, "AppTaskCreate",
+                                             APPTASKCREATE_STACK_WORDS, NULL, 1,
+                                             AppTaskCreate_Stack, &AppTaskCreate_TCB);
+    xReturn = (AppTaskCreate_Handle != NULL) ? pdPASS : pdFAIL;
 
     if (pdPASS == xReturn)
     {

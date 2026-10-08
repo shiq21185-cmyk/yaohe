@@ -13,3 +13,10 @@
 # eide template
 *.ept
 *.eide-template
+
+# 调试代理产生的临时文件
+/build_agent.log
+/uv4_build.log
+/callgraph_stack.csv
+*.autodebug.bak
+Objects/*.Bak

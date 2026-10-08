@@ -58,3 +58,4 @@
 .\objects\app_tasks.o: .\Systerm\Servo.h
 .\objects\app_tasks.o: .\Hardware\PWM.h
 .\objects\app_tasks.o: User\voice_command_handler.h
+.\objects\app_tasks.o: .\BSP\bsp_log.h

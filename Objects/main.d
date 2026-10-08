@@ -56,3 +56,6 @@
 .\objects\main.o: User\app_tasks.h
 .\objects\main.o: .\Systerm\Servo.h
 .\objects\main.o: .\Hardware\PWM.h
+.\objects\main.o: .\BSP\bsp_log.h
+.\objects\main.o: .\BSP\bsp_selftest.h
+.\objects\main.o: .\BSP\cm_backtrace_lite.h

@@ -18,7 +18,7 @@
           <Vendor>STMicroelectronics</Vendor>
           <PackID>Keil.STM32F1xx_DFP.1.0.5</PackID>
           <PackURL>http://www.keil.com/pack/</PackURL>
-          <Cpu>IRAM(0x20000000,0x5000) IROM(0x08000000,0x10000) CPUTYPE("Cortex-M3") CLOCK(12000000) ELITTLE</Cpu>
+          <Cpu>IRAM(0x20000000,0xC000) IROM(0x08000000,0x10000) CPUTYPE("Cortex-M3") CLOCK(12000000) ELITTLE</Cpu>
           <FlashUtilSpec></FlashUtilSpec>
           <StartupFile></StartupFile>
           <FlashDriverDll>UL2CM3(-S0 -C0 -P0 -FD20000000 -FC1000 -FN1 -FF0STM32F10x_128 -FS08000000 -FL020000 -FP0($$Device:STM32F103C8$Flash\STM32F10x_128.FLM))</FlashDriverDll>
@@ -245,7 +245,7 @@
               <IRAM>
                 <Type>0</Type>
                 <StartAddress>0x20000000</StartAddress>
-                <Size>0x5000</Size>
+                <Size>0xc000</Size>
               </IRAM>
               <IROM>
                 <Type>1</Type>
@@ -300,7 +300,7 @@
               <OCR_RVCT9>
                 <Type>0</Type>
                 <StartAddress>0x20000000</StartAddress>
-                <Size>0x5000</Size>
+                <Size>0xc000</Size>
               </OCR_RVCT9>
               <OCR_RVCT10>
                 <Type>0</Type>
@@ -338,7 +338,7 @@
               <MiscControls></MiscControls>
               <Define>USE_STDPERIPH_DRIVER</Define>
               <Undefine></Undefine>
-              <IncludePath>.\Start;.\User;.\Library;.\Systerm;.\Hardware;.\FreeRTOS\port\RVDS\ARM_CM3;.\FreeRTOS\include</IncludePath>
+              <IncludePath>.\Start;.\User;.\BSP;.\Library;.\Systerm;.\Hardware;.\FreeRTOS\port\RVDS\ARM_CM3;.\FreeRTOS\include</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -372,13 +372,53 @@
             <ScatterFile></ScatterFile>
             <IncludeLibs></IncludeLibs>
             <IncludeLibsPath></IncludeLibsPath>
-            <Misc></Misc>
+            <Misc>--callgraph</Misc>
             <LinkerInputFile></LinkerInputFile>
             <DisabledWarnings></DisabledWarnings>
           </LDads>
         </TargetArmAds>
       </TargetOption>
       <Groups>
+        <Group>
+          <GroupName>BSP</GroupName>
+          <Files>
+            <File>
+              <FileName>bsp_log.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\BSP\bsp_log.c</FilePath>
+            </File>
+            <File>
+              <FileName>bsp_log.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\BSP\bsp_log.h</FilePath>
+            </File>
+            <File>
+              <FileName>bsp_selftest.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\BSP\bsp_selftest.c</FilePath>
+            </File>
+            <File>
+              <FileName>bsp_selftest.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\BSP\bsp_selftest.h</FilePath>
+            </File>
+            <File>
+              <FileName>cm_backtrace_lite.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\BSP\cm_backtrace_lite.c</FilePath>
+            </File>
+            <File>
+              <FileName>cm_backtrace_lite.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\BSP\cm_backtrace_lite.h</FilePath>
+            </File>
+            <File>
+              <FileName>cm_backtrace_port.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\BSP\cm_backtrace_port.c</FilePath>
+            </File>
+          </Files>
+        </Group>
         <Group>
           <GroupName>Start</GroupName>
           <Files>
