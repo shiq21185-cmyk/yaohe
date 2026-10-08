@@ -1013,17 +1013,15 @@ void Display_Task(void* parameter)
 
                     // 重量显示
                     OLED_ShowString(3, 1, "W:");
-                    /* 内部单位为0.1g，显示为“整数.小数g”。 */
+                    /* 内部单位为0.1g，屏幕仅显示整数克，减少末位跳动。 */
                     uint32_t display_weight = (weight < 0) ? (uint32_t)(-weight) : (uint32_t)weight;
                     if(weight < 0) {
                         OLED_ShowString(3, 3, "-");
                     } else {
                         OLED_ShowString(3, 3, " ");
                     }
-                    OLED_ShowNum(3, 4, display_weight / 10, 4);
-                    OLED_ShowString(3, 8, ".");
-                    OLED_ShowNum(3, 9, display_weight % 10, 1);
-                    OLED_ShowString(3, 10, "g   ");
+                    OLED_ShowNum(3, 4, display_weight / 10, 3);
+                    OLED_ShowString(3, 7, "g        ");
 
                     // 上传状态显示
                     if(upload_status == UPLOAD_TYPE_TEMP) {

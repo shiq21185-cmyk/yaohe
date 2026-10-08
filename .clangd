@@ -1,66 +1,82 @@
 CompileFlags:
   Add:
-    - -I"D:\Keil5 stm32\ARM\ARMCC\include"
-    - -I"D:\Keil5 stm32\ARM\ARMCC\include\rw"
-    - -D"__STDC__=1"
-    - -D"__STDC_VERSION__=199901L"
-    - -D"__STDC_HOSTED__=1"
-    - -D"__STDC_ISO_10646__=200607"
-    - -D"__EDG__=1"
-    - -D"__EDG_VERSION__=407"
-    - -D"__EDG_SIZE_TYPE__=unsigned int"
-    - -D"__EDG_PTRDIFF_TYPE__=int"
-    - -D"__GNUC__=4"
-    - -D"__GNUC_STDC_INLINE__=1"
-    - -D"__GNUC_MINOR__=7"
-    - -D"__GNUC_PATCHLEVEL__=0"
-    - -D"__VERSION__="4.7 (EDG gcc mode)""
-    - -D"__CHAR16_TYPE__=unsigned short"
-    - -D"__CHAR32_TYPE__=unsigned int"
-    - -D"__USER_LABEL_PREFIX__="
-    - -D"__CHAR_UNSIGNED__=1"
-    - -D"__WCHAR_UNSIGNED__=1"
-    - -D"__SIZE_TYPE__=unsigned int"
-    - -D"__PTRDIFF_TYPE__=int"
-    - -D"__WCHAR_TYPE__=unsigned short"
-    - -D"__WINT_TYPE__=unsigned short"
-    - -D"__INTMAX_TYPE__=long long"
-    - -D"__UINTMAX_TYPE__=unsigned long long"
-    - -D"__sizeof_int=4"
-    - -D"__sizeof_long=4"
-    - -D"__sizeof_ptr=4"
-    - -D"__ARMCC_VERSION=5060750"
-    - -D"__TARGET_CPU_CORTEX_M3=1"
-    - -D"__TARGET_FPU_SOFTVFP=1"
-    - -D"__CC_ARM=1"
-    - -D"__arm=1"
-    - -D"__arm__=1"
-    - -D"__TARGET_ARCH_7_M=1"
-    - -D"__TARGET_ARCH_ARM=0"
-    - -D"__TARGET_ARCH_THUMB=4"
-    - -D"__TARGET_ARCH_A64=0"
-    - -D"__TARGET_ARCH_AARCH32=1"
-    - -D"__TARGET_PROFILE_M=1"
-    - -D"__TARGET_FEATURE_HALFWORD=1"
-    - -D"__TARGET_FEATURE_THUMB=1"
-    - -D"__TARGET_FEATURE_MULTIPLY=1"
-    - -D"__TARGET_FEATURE_DOUBLEWORD=1"
-    - -D"__TARGET_FEATURE_DIVIDE=1"
-    - -D"__TARGET_FEATURE_UNALIGNED=1"
-    - -D"__TARGET_FEATURE_CLZ=1"
-    - -D"__TARGET_FEATURE_DMB=1"
-    - -D"__TARGET_FEATURE_EXTENSION_REGISTER_COUNT=0"
-    - -D"__APCS_INTERWORK=1"
-    - -D"__thumb=1"
-    - -D"__thumb__=1"
-    - -D"__t32__=1"
-    - -D"__OPTIMISE_SPACE=1"
-    - -D"__OPTIMIZE__=1"
-    - -D"__OPTIMIZE_SIZE__=1"
-    - -D"__OPT_SMALL_ASSERT=1"
-    - -D"__OPTIMISE_LEVEL=2"
-    - -D"__SOFTFP__=1"
-  Remove: []
+    - -isystemD:\Keil5 stm32\ARM\ARMCC\include
+    - -isystemD:\Keil5 stm32\ARM\ARMCC\include\rw
+    - -D__STDC__=1
+    - -D__STDC_VERSION__=199901L
+    - -D__STDC_HOSTED__=1
+    - -D__STDC_ISO_10646__=200607
+    - -D__EDG__=1
+    - -D__EDG_VERSION__=407
+    - -D__EDG_SIZE_TYPE__=unsigned int
+    - -D__EDG_PTRDIFF_TYPE__=int
+    - -D__GNUC__=4
+    - -D__GNUC_STDC_INLINE__=1
+    - -D__GNUC_MINOR__=7
+    - -D__GNUC_PATCHLEVEL__=0
+    - -D__VERSION__="4.7 (EDG gcc mode)"
+    - -D__CHAR16_TYPE__=unsigned short
+    - -D__CHAR32_TYPE__=unsigned int
+    - -D__USER_LABEL_PREFIX__=
+    - -D__CHAR_UNSIGNED__=1
+    - -D__WCHAR_UNSIGNED__=1
+    - -D__SIZE_TYPE__=unsigned int
+    - -D__PTRDIFF_TYPE__=int
+    - -D__WCHAR_TYPE__=unsigned short
+    - -D__WINT_TYPE__=unsigned short
+    - -D__INTMAX_TYPE__=long long
+    - -D__UINTMAX_TYPE__=unsigned long long
+    - -D__sizeof_int=4
+    - -D__sizeof_long=4
+    - -D__sizeof_ptr=4
+    - -D__ARMCC_VERSION=5060750
+    - -D__TARGET_CPU_CORTEX_M3=1
+    - -D__TARGET_FPU_SOFTVFP=1
+    - -D__CC_ARM=1
+    - -D__arm=1
+    - -D__arm__=1
+    - -D__TARGET_ARCH_7_M=1
+    - -D__TARGET_ARCH_ARM=0
+    - -D__TARGET_ARCH_THUMB=4
+    - -D__TARGET_ARCH_A64=0
+    - -D__TARGET_ARCH_AARCH32=1
+    - -D__TARGET_PROFILE_M=1
+    - -D__TARGET_FEATURE_HALFWORD=1
+    - -D__TARGET_FEATURE_THUMB=1
+    - -D__TARGET_FEATURE_MULTIPLY=1
+    - -D__TARGET_FEATURE_DOUBLEWORD=1
+    - -D__TARGET_FEATURE_DIVIDE=1
+    - -D__TARGET_FEATURE_UNALIGNED=1
+    - -D__TARGET_FEATURE_CLZ=1
+    - -D__TARGET_FEATURE_DMB=1
+    - -D__TARGET_FEATURE_EXTENSION_REGISTER_COUNT=0
+    - -D__APCS_INTERWORK=1
+    - -D__thumb=1
+    - -D__thumb__=1
+    - -D__t32__=1
+    - -D__OPTIMISE_SPACE=1
+    - -D__OPTIMIZE__=1
+    - -D__OPTIMIZE_SIZE__=1
+    - -D__OPT_SMALL_ASSERT=1
+    - -D__OPTIMISE_LEVEL=2
+    - -D__SOFTFP__=1
+    - -ferror-limit=0
+  Remove:
+    - --cpu
+    - --li
+    - --c99
+    - --split_sections
+    - --diag_suppress=*
+    - --no_depend_system_headers
+    - --depend
+    - --strict
+    - --enum_is_int
+    - --gnu
+    - --apcs=*
+    - --signed_chars
+    - --split_ldm
+    - --execute_only
+    - -Otime
   CompilationDatabase: ./build/Target 1
 Diagnostics:
   Suppress: "*"
