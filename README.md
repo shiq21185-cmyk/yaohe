@@ -8,7 +8,7 @@
 - **取药动作检测**：重量传感器+光敏传感器双重校验，准确识别取药行为，避免漏服误报
 - **空盒报警机制**：自动检测药盒剩余药量，余量不足时主动提醒用户补药
 - **全离线语音控制**：无需手机APP，纯离线语音即可完成闹钟配置、功能设置等全部操作
-- **蓝牙数据上传**：支持服药数据、设备状态上传到手机端，便于健康管理
+- **数据上传**：ESP8266 通过 MQTT 上传温湿度、重量与状态数据；HC-06 蓝牙用于手机端下发时间同步与闹钟配置
 - **低功耗运行**：传感器周期性唤醒，非关键任务低优先级调度，延长设备续航
 
 ## ✨ 创新设计特点
@@ -48,25 +48,41 @@
 ## 📁 项目结构
 
 ```
+├── BSP/              # 板级支持包：寄存器与时钟操作收敛层
+│   ├── bsp_gpio.c/h  # GPIO 配置与时钟使能
+│   ├── bsp_uart.c/h  # 三个串口的初始化、发送与中断收字节
+│   ├── bsp_i2c.c/h   # 软件 I²C 位时序
+│   ├── bsp_pwm.c/h   # 舵机 PWM 输出（TIM2_CH2 / PB3）
+│   ├── bsp_time.c/h  # TIM4 微秒时基与延时
+│   ├── bsp_flash.c/h # 闹钟页读写与校验
+│   ├── bsp_log.c/h   # 寄存器级日志输出（不依赖 printf）
+│   ├── bsp_selftest.c/h      # 启动 RAM 自检
+│   └── cm_backtrace_lite.c/h # Hardware Fault 现场定位
 ├── Hardware/         # 硬件驱动代码
-│   ├── blue.c/h      # 蓝牙驱动
-│   ├── hc06.c/h      # HC-06 蓝牙协议与闹钟配置
-│   ├── dht11.c/h     # DHT11 温湿度传感器驱动
+│   ├── DHT11.c/h     # DHT11 温湿度传感器驱动
+│   ├── esp8266.c/h   # WiFi 与 MQTT 上传
+│   ├── hc06.c/h      # HC-06 蓝牙协议、时间同步与闹钟配置
 │   ├── hx711.c/h     # 重量传感器驱动
-│   ├── light.c/h     # 光敏传感器驱动
 │   ├── key.c/h       # 按键驱动
-│   ├── oled.c/h      # OLED显示驱动
-│   ├── pwm.c/h       # PWM舵机驱动
-│   ├── usart.c/h     # 串口驱动
+│   ├── LED.c/h       # 指示灯驱动
+│   ├── light.c/h     # 光敏传感器驱动
+│   ├── OLED.c/h      # OLED 显示驱动（字库在 OLED_Font.h）
+│   ├── PWM.c/h       # 舵机 PWM 语义封装
+│   ├── usart.c/h     # 串口初始化与中断入口
 │   └── xrvoice.c/h   # 语音模块驱动
 ├── User/             # 应用层代码
 │   ├── main.c        # 主程序入口
-│   ├── app_tasks.c/h # FreeRTOS任务定义
-│   └── voice_command_handler.c/h # 语音命令处理
-├── FreeRTOS/         # FreeRTOS操作系统源码
+│   ├── app_tasks.c/h # FreeRTOS 任务定义与业务逻辑
+│   ├── voice_command_handler.c/h # 语音命令处理
+│   ├── FreeRTOSConfig.h   # FreeRTOS 配置
+│   └── stm32f10x_it.c/h   # 中断处理
+├── Systerm/          # 底层支持模块（延时、定时器、舵机）
+├── FreeRTOS/         # FreeRTOS 操作系统源码
+├── Library/          # STM32 标准外设库
+├── Start/            # 启动文件
 ├── Objects/          # 编译输出文件
 ├── Listings/         # 编译列表文件
-└── 元件图/           # 硬件元件参考图片
+└── Poject.uvprojx    # Keil MDK 工程文件
 ```
 
 ## 📖 使用说明
@@ -139,3 +155,19 @@
 - **指示灯调试模式**：PA0 指示灯临时固定为常亮，便于检查接线和供电状态。
 - **传感器驱动整理**：补充并统一 HX711、DHT11、按键与定时器模块的中文说明。
 - **项目文档完善**：新增实际 GPIO 接线表、Flash 保存说明及 Keil 编译烧录流程。
+
+## 📅 2026.07 内存优化与 BSP 分层重构
+
+- **新增 BSP 分层**：新建 `BSP/` 目录，把 GPIO、串口、软件 I²C、舵机 PWM、时基（TIM4）、Flash 的寄存器与时钟操作全部收敛进来，驱动层只调用语义 API（如 `BSP_UART_Send()`、`BSP_SoftI2C_WriteFrame()`、`BSP_Flash_WriteAlarms()`），所有新文件都已登记进 `Poject.uvprojx`。
+- **中断服务只收字节**：`USART1/2/3_IRQHandler` 统一精简为一行 `BSP_UART_IsrFetch()`，中断里只把收到的字节交回驱动或环形缓冲，解析与组帧全部移到任务上下文执行。
+- **OLED 保护机制统一**：删除 13 个显示函数内部各自的互斥量 take/give，改为调用方持有一把刷新帧锁（`OLED_Lock()` / `OLED_Unlock()`），其他任务写入的提示不再被 `Display_Task` 的 50ms 周期重绘立即覆盖。
+- **内存策略回归大众用法**：任务与互斥量统一采用 FreeRTOS 动态创建（`xTaskCreate` / `xSemaphoreCreateMutex`），`configTOTAL_HEAP_SIZE` 为 20KB、`configMINIMAL_STACK_SIZE` 为 128 字，任务栈深取 512/256 字；`configSUPPORT_STATIC_ALLOCATION` 置 0，原先的静态栈/TCB 与 `vApplicationGet*TaskMemory` 回调全部删除。
+- **容量实测**：SRAM 按 48KB 配置（`Poject.uvprojx` 的 IRAM 为 `0xc000`），实际占用 23952 字节（23.39KB）；ROM 44716 字节。Keil 全量重建 **0 错 0 警告**，链接无 `L6406E/L6407E`。
+- **上板自检输出**：启动完成打印 `[ALL TESTS PASSED]`；运行约 31 秒后由空闲钩子打印各任务的剩余栈水位 `[STACK-WATERMARK]`，以及内核堆余量 `[HEAP] free=… min-ever-free=… total=20480B`，便于上板核对栈深与堆配置。
+- **缺陷修复**：
+  - 音量调节指令原先误发到 USART1（蓝牙口），改为发往 USART3（语音模块）
+  - `USART1_Init()` 改为使用传入的波特率参数，不再写死
+  - 闹钟 Flash 写入从 USART1 中断中移出，改为脏标志 + 任务上下文保存，中断内不再擦写 Flash
+  - DHT11 读取时的关中断窗口由 20ms 收窄到 3~5ms，只包住 5 次字节接收
+  - `Voice_Task` 优先级越界（6 → 4）修正，与 `configMAX_PRIORITIES` 匹配
+  - `HandleVoiceCommand()` 由 9 段 `if` 链改为表驱动分发表，语义保持不变
