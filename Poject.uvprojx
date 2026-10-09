@@ -467,6 +467,16 @@
               <FileType>5</FileType>
               <FilePath>.\BSP\bsp_i2c.h</FilePath>
             </File>
+            <File>
+              <FileName>bsp_pwm.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\BSP\bsp_pwm.c</FilePath>
+            </File>
+            <File>
+              <FileName>bsp_pwm.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\BSP\bsp_pwm.h</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

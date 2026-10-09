@@ -377,9 +377,5 @@ void XRVoice_Stop(void)
 // 组帧与指令解析全部交给 XRVoice_Task() 在任务上下文完成。
 void USART3_IRQHandler(void)
 {
-    if(USART_GetITStatus(USART3, USART_IT_RXNE) != RESET)
-    {
-        BSP_UART_RxIsr(BSP_UART_VOICE);
-        USART_ClearITPendingBit(USART3, USART_IT_RXNE);
-    }
+    (void)BSP_UART_IsrFetch(BSP_UART_VOICE);
 }

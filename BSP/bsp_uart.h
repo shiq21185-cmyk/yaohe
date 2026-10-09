@@ -50,7 +50,10 @@ uint16_t BSP_UART_Read(BSP_UartId id, uint8_t *dst, uint16_t maxlen);
 void     BSP_UART_Flush(BSP_UartId id);
 uint16_t BSP_UART_Overrun(BSP_UartId id);
 
-/* 各口 IRQHandler 的唯一职责就是调用它：把接收到的字节推进环形缓冲。 */
-void BSP_UART_RxIsr(BSP_UartId id);
+/* 各口 IRQHandler 的唯一职责就是调用它：
+ * 判 RXNE -> 读 DR（读 DR 顺带清标志）-> 该口若由本层持有缓冲则顺便入缓冲。
+ * 返回值：收到的字节 0~255；本次中断没有数据时返回 -1。
+ * 这样"哪个 USART 的哪个标志位"这类寄存器细节也留在 BSP 层里。 */
+int BSP_UART_IsrFetch(BSP_UartId id);
 
 #endif

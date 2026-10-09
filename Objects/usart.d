@@ -29,5 +29,4 @@
 .\objects\usart.o: .\Library\stm32f10x_usart.h
 .\objects\usart.o: .\Library\stm32f10x_wwdg.h
 .\objects\usart.o: .\Library\misc.h
-.\objects\usart.o: .\BSP\bsp_gpio.h
 .\objects\usart.o: .\BSP\bsp_uart.h

@@ -237,13 +237,11 @@ void ESP_MQTTPublish(uint8_t *topic, uint8_t *data)
 
 void USART2_IRQHandler(void)
 {
+	int b = BSP_UART_IsrFetch(BSP_UART_ESP);   // 判标志位 + 读 DR + 清标志都在 BSP 里
 
-	if(USART_GetITStatus(USART2, USART_IT_RXNE) != RESET) //接收中断
+	if(b >= 0)
 	{
 		if(esp8266_cnt >= sizeof(esp8266_buf))	esp8266_cnt = 0; //防止缓存溢出
-		esp8266_buf[esp8266_cnt++] = USART2->DR;
-
-		USART_ClearFlag(USART2, USART_FLAG_RXNE);
+		esp8266_buf[esp8266_cnt++] = (unsigned char)b;
 	}
-
 }

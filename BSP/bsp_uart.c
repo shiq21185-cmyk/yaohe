@@ -169,10 +169,23 @@ uint16_t BSP_UART_Overrun(BSP_UartId id)
 
 /* -------------------------------------------------------------------------- */
 
-void BSP_UART_RxIsr(BSP_UartId id)
+int BSP_UART_IsrFetch(BSP_UartId id)
 {
-    if (id >= BSP_UART_COUNT || s_rx[id].buf == 0) { return; }
+    USART_TypeDef *u;
+    uint8_t        b;
 
-    /* 读 DR 同时清 RXNE。这里只做一件事：入缓冲。 */
-    rx_push(&s_rx[id], (uint8_t)s_hw[id].usart->DR);
+    if (id >= BSP_UART_COUNT) { return -1; }
+    u = s_hw[id].usart;
+
+    if (USART_GetITStatus(u, USART_IT_RXNE) == RESET) { return -1; }
+
+    /* 读 DR 同时清 RXNE；再清一次 pending 位，和重构前的写法保持一致。 */
+    b = (uint8_t)u->DR;
+    USART_ClearITPendingBit(u, USART_IT_RXNE);
+
+    /* 由本层持有缓冲的口（BT / VOICE）直接入缓冲；
+     * ESP 口的缓冲仍在驱动里，这里只把字节交回去。 */
+    if (s_rx[id].buf != 0) { rx_push(&s_rx[id], b); }
+
+    return (int)b;
 }
