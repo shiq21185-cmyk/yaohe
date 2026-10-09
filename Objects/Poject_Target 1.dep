@@ -1226,7 +1226,7 @@ I (Hardware\OLED_Font.h)(0x6A59A8DB)
 I (Hardware\OLED.h)(0x6AC880CB)
 I (.\FreeRTOS\include\FreeRTOS.h)(0x573F3A16)
 I (D:\Keil5 stm32\ARM\ARMCC\include\stddef.h)(0x5CEB79E2)
-I (.\User\FreeRTOSConfig.h)(0x6AC87FC8)
+I (.\User\FreeRTOSConfig.h)(0x6AC89809)
 I (.\FreeRTOS\include\projdefs.h)(0x573F3A16)
 I (.\FreeRTOS\include\portable.h)(0x573F3A16)
 I (.\FreeRTOS\include\deprecated_definitions.h)(0x573F3A16)
@@ -1272,7 +1272,7 @@ I (Hardware\usart.h)(0x6AC87FA2)
 I (Hardware\OLED.h)(0x6AC880CB)
 I (.\FreeRTOS\include\FreeRTOS.h)(0x573F3A16)
 I (D:\Keil5 stm32\ARM\ARMCC\include\stddef.h)(0x5CEB79E2)
-I (.\User\FreeRTOSConfig.h)(0x6AC87FC8)
+I (.\User\FreeRTOSConfig.h)(0x6AC89809)
 I (.\FreeRTOS\include\projdefs.h)(0x573F3A16)
 I (.\FreeRTOS\include\portable.h)(0x573F3A16)
 I (.\FreeRTOS\include\deprecated_definitions.h)(0x573F3A16)
@@ -1416,7 +1416,7 @@ I (.\Library\stm32f10x_wwdg.h)(0x4D783BB4)
 I (.\Library\misc.h)(0x4D783BB4)
 I (.\FreeRTOS\include\FreeRTOS.h)(0x573F3A16)
 I (D:\Keil5 stm32\ARM\ARMCC\include\stddef.h)(0x5CEB79E2)
-I (.\User\FreeRTOSConfig.h)(0x6AC87FC8)
+I (.\User\FreeRTOSConfig.h)(0x6AC89809)
 I (.\FreeRTOS\include\projdefs.h)(0x573F3A16)
 I (.\FreeRTOS\include\portable.h)(0x573F3A16)
 I (.\FreeRTOS\include\deprecated_definitions.h)(0x573F3A16)
@@ -1520,7 +1520,7 @@ I (.\Library\stm32f10x_wwdg.h)(0x4D783BB4)
 I (.\Library\misc.h)(0x4D783BB4)
 I (.\FreeRTOS\include\FreeRTOS.h)(0x573F3A16)
 I (D:\Keil5 stm32\ARM\ARMCC\include\stddef.h)(0x5CEB79E2)
-I (.\User\FreeRTOSConfig.h)(0x6AC87FC8)
+I (.\User\FreeRTOSConfig.h)(0x6AC89809)
 I (.\FreeRTOS\include\projdefs.h)(0x573F3A16)
 I (.\FreeRTOS\include\portable.h)(0x573F3A16)
 I (.\FreeRTOS\include\deprecated_definitions.h)(0x573F3A16)
@@ -1571,7 +1571,7 @@ I (.\Library\misc.h)(0x4D783BB4)
 I (Hardware\usart.h)(0x6AC87FA2)
 I (.\FreeRTOS\include\FreeRTOS.h)(0x573F3A16)
 I (D:\Keil5 stm32\ARM\ARMCC\include\stddef.h)(0x5CEB79E2)
-I (.\User\FreeRTOSConfig.h)(0x6AC87FC8)
+I (.\User\FreeRTOSConfig.h)(0x6AC89809)
 I (.\FreeRTOS\include\projdefs.h)(0x573F3A16)
 I (.\FreeRTOS\include\portable.h)(0x573F3A16)
 I (.\FreeRTOS\include\deprecated_definitions.h)(0x573F3A16)
@@ -1583,7 +1583,7 @@ I (.\FreeRTOS\include\semphr.h)(0x573F3A16)
 I (.\FreeRTOS\include\queue.h)(0x573F3A16)
 I (D:\Keil5 stm32\ARM\ARMCC\include\string.h)(0x5CEB79E2)
 I (D:\Keil5 stm32\ARM\ARMCC\include\stdio.h)(0x5CEB79E2)
-I (.\User\app_tasks.h)(0x6AC87E17)
+I (.\User\app_tasks.h)(0x6AC8980C)
 I (.\Hardware\OLED.h)(0x6AC880CB)
 I (.\Hardware\hx711.h)(0x6AC87ED0)
 I (D:\Keil5 stm32\ARM\ARMCC\include\stdlib.h)(0x5CEB79E2)
@@ -1595,7 +1595,7 @@ I (.\Hardware\key.h)(0x6A59A8DB)
 I (.\BSP\bsp_uart.h)(0x6AC89004)
 I (.\BSP\bsp_flash.h)(0x6AC87FEA)
 F (.\Hardware\hc06.h)(0x6AC87F62)()
-F (.\User\main.c)(0x6AC87E27)(--c99 --gnu -c --cpu Cortex-M3 -g -O0 --apcs=interwork --split_sections -I .\Start -I .\User -I .\BSP -I .\Library -I .\Systerm -I .\Hardware -I .\FreeRTOS\port\RVDS\ARM_CM3 -I .\FreeRTOS\include-I.\RTE\_Target_1-I"D:\Keil5 stm32\ARM\PACK\Keil\STM32F1xx_DFP\1.0.5\Device\Include"-I"D:\Keil5 stm32\ARM\CMSIS\Include"-D__UVISION_VERSION="528" -DSTM32F10X_MD -DUSE_STDPERIPH_DRIVER-o .\objects\main.o --omf_browse .\objects\main.crf --depend .\objects\main.d)
+F (.\User\main.c)(0x6AC89817)(--c99 --gnu -c --cpu Cortex-M3 -g -O0 --apcs=interwork --split_sections -I .\Start -I .\User -I .\BSP -I .\Library -I .\Systerm -I .\Hardware -I .\FreeRTOS\port\RVDS\ARM_CM3 -I .\FreeRTOS\include-I.\RTE\_Target_1-I"D:\Keil5 stm32\ARM\PACK\Keil\STM32F1xx_DFP\1.0.5\Device\Include"-I"D:\Keil5 stm32\ARM\CMSIS\Include"-D__UVISION_VERSION="528" -DSTM32F10X_MD -DUSE_STDPERIPH_DRIVER-o .\objects\main.o --omf_browse .\objects\main.crf --depend .\objects\main.d)
 I (.\Start\stm32f10x.h)(0x69C4D28F)
 I (.\Start\core_cm3.h)(0x4D523B58)
 I (D:\Keil5 stm32\ARM\ARMCC\include\stdint.h)(0x5CEB79E2)
@@ -1628,7 +1628,7 @@ I (.\Systerm\Delay.h)(0x6AC87FD4)
 I (.\Hardware\OLED.h)(0x6AC880CB)
 I (.\FreeRTOS\include\FreeRTOS.h)(0x573F3A16)
 I (D:\Keil5 stm32\ARM\ARMCC\include\stddef.h)(0x5CEB79E2)
-I (.\User\FreeRTOSConfig.h)(0x6AC87FC8)
+I (.\User\FreeRTOSConfig.h)(0x6AC89809)
 I (.\FreeRTOS\include\projdefs.h)(0x573F3A16)
 I (.\FreeRTOS\include\portable.h)(0x573F3A16)
 I (.\FreeRTOS\include\deprecated_definitions.h)(0x573F3A16)
@@ -1650,7 +1650,7 @@ I (.\FreeRTOS\include\list.h)(0x573F3A16)
 I (.\Hardware\xrvoice.h)(0x6AC87F9E)
 I (.\Hardware\hc06.h)(0x6AC87F62)
 I (.\Hardware\key.h)(0x6A59A8DB)
-I (User\app_tasks.h)(0x6AC87E17)
+I (User\app_tasks.h)(0x6AC8980C)
 I (.\Systerm\Servo.h)(0x6A59A8DB)
 I (.\Hardware\PWM.h)(0x6AC881E7)
 I (.\BSP\bsp_log.h)(0x6AC7AB7A)
@@ -1689,7 +1689,7 @@ I (.\Library\stm32f10x_wwdg.h)(0x4D783BB4)
 I (.\Library\misc.h)(0x4D783BB4)
 I (.\FreeRTOS\include\FreeRTOS.h)(0x573F3A16)
 I (D:\Keil5 stm32\ARM\ARMCC\include\stddef.h)(0x5CEB79E2)
-I (.\User\FreeRTOSConfig.h)(0x6AC87FC8)
+I (.\User\FreeRTOSConfig.h)(0x6AC89809)
 I (.\FreeRTOS\include\projdefs.h)(0x573F3A16)
 I (.\FreeRTOS\include\portable.h)(0x573F3A16)
 I (.\FreeRTOS\include\deprecated_definitions.h)(0x573F3A16)
@@ -1698,9 +1698,9 @@ I (.\FreeRTOS\include\mpu_wrappers.h)(0x573F3A16)
 I (.\FreeRTOS\include\task.h)(0x573F3A16)
 I (.\FreeRTOS\include\list.h)(0x573F3A16)
 F (.\User\stm32f10x_it.h)(0x6A59A8DB)()
-F (.\User\FreeRTOSConfig.h)(0x6AC87FC8)()
-F (.\User\app_tasks.c)(0x6AC88144)(--c99 --gnu -c --cpu Cortex-M3 -g -O0 --apcs=interwork --split_sections -I .\Start -I .\User -I .\BSP -I .\Library -I .\Systerm -I .\Hardware -I .\FreeRTOS\port\RVDS\ARM_CM3 -I .\FreeRTOS\include-I.\RTE\_Target_1-I"D:\Keil5 stm32\ARM\PACK\Keil\STM32F1xx_DFP\1.0.5\Device\Include"-I"D:\Keil5 stm32\ARM\CMSIS\Include"-D__UVISION_VERSION="528" -DSTM32F10X_MD -DUSE_STDPERIPH_DRIVER-o .\objects\app_tasks.o --omf_browse .\objects\app_tasks.crf --depend .\objects\app_tasks.d)
-I (User\app_tasks.h)(0x6AC87E17)
+F (.\User\FreeRTOSConfig.h)(0x6AC89809)()
+F (.\User\app_tasks.c)(0x6AC89883)(--c99 --gnu -c --cpu Cortex-M3 -g -O0 --apcs=interwork --split_sections -I .\Start -I .\User -I .\BSP -I .\Library -I .\Systerm -I .\Hardware -I .\FreeRTOS\port\RVDS\ARM_CM3 -I .\FreeRTOS\include-I.\RTE\_Target_1-I"D:\Keil5 stm32\ARM\PACK\Keil\STM32F1xx_DFP\1.0.5\Device\Include"-I"D:\Keil5 stm32\ARM\CMSIS\Include"-D__UVISION_VERSION="528" -DSTM32F10X_MD -DUSE_STDPERIPH_DRIVER-o .\objects\app_tasks.o --omf_browse .\objects\app_tasks.crf --depend .\objects\app_tasks.d)
+I (User\app_tasks.h)(0x6AC8980C)
 I (.\Start\stm32f10x.h)(0x69C4D28F)
 I (.\Start\core_cm3.h)(0x4D523B58)
 I (D:\Keil5 stm32\ARM\ARMCC\include\stdint.h)(0x5CEB79E2)
@@ -1731,7 +1731,7 @@ I (.\Library\stm32f10x_wwdg.h)(0x4D783BB4)
 I (.\Library\misc.h)(0x4D783BB4)
 I (.\FreeRTOS\include\FreeRTOS.h)(0x573F3A16)
 I (D:\Keil5 stm32\ARM\ARMCC\include\stddef.h)(0x5CEB79E2)
-I (.\User\FreeRTOSConfig.h)(0x6AC87FC8)
+I (.\User\FreeRTOSConfig.h)(0x6AC89809)
 I (.\FreeRTOS\include\projdefs.h)(0x573F3A16)
 I (.\FreeRTOS\include\portable.h)(0x573F3A16)
 I (.\FreeRTOS\include\deprecated_definitions.h)(0x573F3A16)
@@ -1760,7 +1760,7 @@ I (.\Systerm\Servo.h)(0x6A59A8DB)
 I (.\Hardware\PWM.h)(0x6AC881E7)
 I (User\voice_command_handler.h)(0x6A59A8DB)
 I (.\BSP\bsp_log.h)(0x6AC7AB7A)
-F (.\User\app_tasks.h)(0x6AC87E17)()
+F (.\User\app_tasks.h)(0x6AC8980C)()
 F (.\User\voice_command_handler.c)(0x6AC88189)(--c99 --gnu -c --cpu Cortex-M3 -g -O0 --apcs=interwork --split_sections -I .\Start -I .\User -I .\BSP -I .\Library -I .\Systerm -I .\Hardware -I .\FreeRTOS\port\RVDS\ARM_CM3 -I .\FreeRTOS\include-I.\RTE\_Target_1-I"D:\Keil5 stm32\ARM\PACK\Keil\STM32F1xx_DFP\1.0.5\Device\Include"-I"D:\Keil5 stm32\ARM\CMSIS\Include"-D__UVISION_VERSION="528" -DSTM32F10X_MD -DUSE_STDPERIPH_DRIVER-o .\objects\voice_command_handler.o --omf_browse .\objects\voice_command_handler.crf --depend .\objects\voice_command_handler.d)
 I (User\voice_command_handler.h)(0x6A59A8DB)
 I (.\Start\stm32f10x.h)(0x69C4D28F)
@@ -1794,7 +1794,7 @@ I (.\Library\misc.h)(0x4D783BB4)
 I (.\Hardware\xrvoice.h)(0x6AC87F9E)
 I (.\FreeRTOS\include\FreeRTOS.h)(0x573F3A16)
 I (D:\Keil5 stm32\ARM\ARMCC\include\stddef.h)(0x5CEB79E2)
-I (.\User\FreeRTOSConfig.h)(0x6AC87FC8)
+I (.\User\FreeRTOSConfig.h)(0x6AC89809)
 I (.\FreeRTOS\include\projdefs.h)(0x573F3A16)
 I (.\FreeRTOS\include\portable.h)(0x573F3A16)
 I (.\FreeRTOS\include\deprecated_definitions.h)(0x573F3A16)
@@ -1806,7 +1806,7 @@ I (.\FreeRTOS\include\semphr.h)(0x573F3A16)
 I (.\FreeRTOS\include\queue.h)(0x573F3A16)
 I (.\Hardware\usart.h)(0x6AC87FA2)
 I (.\Hardware\OLED.h)(0x6AC880CB)
-I (User\app_tasks.h)(0x6AC87E17)
+I (User\app_tasks.h)(0x6AC8980C)
 I (.\Hardware\hx711.h)(0x6AC87ED0)
 I (D:\Keil5 stm32\ARM\ARMCC\include\stdlib.h)(0x5CEB79E2)
 I (.\BSP\bsp_gpio.h)(0x6AC87E9A)
@@ -1821,7 +1821,7 @@ F (.\FreeRTOS\src\croutine.c)(0x573F3A16)(--c99 --gnu -c --cpu Cortex-M3 -g -O0 
 I (.\FreeRTOS\include\FreeRTOS.h)(0x573F3A16)
 I (D:\Keil5 stm32\ARM\ARMCC\include\stddef.h)(0x5CEB79E2)
 I (D:\Keil5 stm32\ARM\ARMCC\include\stdint.h)(0x5CEB79E2)
-I (.\User\FreeRTOSConfig.h)(0x6AC87FC8)
+I (.\User\FreeRTOSConfig.h)(0x6AC89809)
 I (.\Start\stm32f10x.h)(0x69C4D28F)
 I (.\Start\core_cm3.h)(0x4D523B58)
 I (.\Start\system_stm32f10x.h)(0x4D783CAA)
@@ -1862,7 +1862,7 @@ I (D:\Keil5 stm32\ARM\ARMCC\include\stdlib.h)(0x5CEB79E2)
 I (.\FreeRTOS\include\FreeRTOS.h)(0x573F3A16)
 I (D:\Keil5 stm32\ARM\ARMCC\include\stddef.h)(0x5CEB79E2)
 I (D:\Keil5 stm32\ARM\ARMCC\include\stdint.h)(0x5CEB79E2)
-I (.\User\FreeRTOSConfig.h)(0x6AC87FC8)
+I (.\User\FreeRTOSConfig.h)(0x6AC89809)
 I (.\Start\stm32f10x.h)(0x69C4D28F)
 I (.\Start\core_cm3.h)(0x4D523B58)
 I (.\Start\system_stm32f10x.h)(0x4D783CAA)
@@ -1904,7 +1904,7 @@ I (D:\Keil5 stm32\ARM\ARMCC\include\stdlib.h)(0x5CEB79E2)
 I (.\FreeRTOS\include\FreeRTOS.h)(0x573F3A16)
 I (D:\Keil5 stm32\ARM\ARMCC\include\stddef.h)(0x5CEB79E2)
 I (D:\Keil5 stm32\ARM\ARMCC\include\stdint.h)(0x5CEB79E2)
-I (.\User\FreeRTOSConfig.h)(0x6AC87FC8)
+I (.\User\FreeRTOSConfig.h)(0x6AC89809)
 I (.\Start\stm32f10x.h)(0x69C4D28F)
 I (.\Start\core_cm3.h)(0x4D523B58)
 I (.\Start\system_stm32f10x.h)(0x4D783CAA)
@@ -1944,7 +1944,7 @@ I (D:\Keil5 stm32\ARM\ARMCC\include\string.h)(0x5CEB79E2)
 I (.\FreeRTOS\include\FreeRTOS.h)(0x573F3A16)
 I (D:\Keil5 stm32\ARM\ARMCC\include\stddef.h)(0x5CEB79E2)
 I (D:\Keil5 stm32\ARM\ARMCC\include\stdint.h)(0x5CEB79E2)
-I (.\User\FreeRTOSConfig.h)(0x6AC87FC8)
+I (.\User\FreeRTOSConfig.h)(0x6AC89809)
 I (.\Start\stm32f10x.h)(0x69C4D28F)
 I (.\Start\core_cm3.h)(0x4D523B58)
 I (.\Start\system_stm32f10x.h)(0x4D783CAA)
@@ -1986,7 +1986,7 @@ I (D:\Keil5 stm32\ARM\ARMCC\include\string.h)(0x5CEB79E2)
 I (.\FreeRTOS\include\FreeRTOS.h)(0x573F3A16)
 I (D:\Keil5 stm32\ARM\ARMCC\include\stddef.h)(0x5CEB79E2)
 I (D:\Keil5 stm32\ARM\ARMCC\include\stdint.h)(0x5CEB79E2)
-I (.\User\FreeRTOSConfig.h)(0x6AC87FC8)
+I (.\User\FreeRTOSConfig.h)(0x6AC89809)
 I (.\Start\stm32f10x.h)(0x69C4D28F)
 I (.\Start\core_cm3.h)(0x4D523B58)
 I (.\Start\system_stm32f10x.h)(0x4D783CAA)
@@ -2028,7 +2028,7 @@ I (D:\Keil5 stm32\ARM\ARMCC\include\stdlib.h)(0x5CEB79E2)
 I (.\FreeRTOS\include\FreeRTOS.h)(0x573F3A16)
 I (D:\Keil5 stm32\ARM\ARMCC\include\stddef.h)(0x5CEB79E2)
 I (D:\Keil5 stm32\ARM\ARMCC\include\stdint.h)(0x5CEB79E2)
-I (.\User\FreeRTOSConfig.h)(0x6AC87FC8)
+I (.\User\FreeRTOSConfig.h)(0x6AC89809)
 I (.\Start\stm32f10x.h)(0x69C4D28F)
 I (.\Start\core_cm3.h)(0x4D523B58)
 I (.\Start\system_stm32f10x.h)(0x4D783CAA)
@@ -2070,7 +2070,7 @@ I (D:\Keil5 stm32\ARM\ARMCC\include\stdlib.h)(0x5CEB79E2)
 I (.\FreeRTOS\include\FreeRTOS.h)(0x573F3A16)
 I (D:\Keil5 stm32\ARM\ARMCC\include\stddef.h)(0x5CEB79E2)
 I (D:\Keil5 stm32\ARM\ARMCC\include\stdint.h)(0x5CEB79E2)
-I (.\User\FreeRTOSConfig.h)(0x6AC87FC8)
+I (.\User\FreeRTOSConfig.h)(0x6AC89809)
 I (.\Start\stm32f10x.h)(0x69C4D28F)
 I (.\Start\core_cm3.h)(0x4D523B58)
 I (.\Start\system_stm32f10x.h)(0x4D783CAA)
@@ -2109,7 +2109,7 @@ F (.\FreeRTOS\port\RVDS\ARM_CM3\port.c)(0x573F3A17)(--c99 --gnu -c --cpu Cortex-
 I (.\FreeRTOS\include\FreeRTOS.h)(0x573F3A16)
 I (D:\Keil5 stm32\ARM\ARMCC\include\stddef.h)(0x5CEB79E2)
 I (D:\Keil5 stm32\ARM\ARMCC\include\stdint.h)(0x5CEB79E2)
-I (.\User\FreeRTOSConfig.h)(0x6AC87FC8)
+I (.\User\FreeRTOSConfig.h)(0x6AC89809)
 I (.\Start\stm32f10x.h)(0x69C4D28F)
 I (.\Start\core_cm3.h)(0x4D523B58)
 I (.\Start\system_stm32f10x.h)(0x4D783CAA)

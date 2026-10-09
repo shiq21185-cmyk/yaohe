@@ -17,6 +17,7 @@
 # 调试代理产生的临时文件
 /build_agent.log
 /uv4_build.log
+/uv4_rebuild.log
 /callgraph_stack.csv
 *.autodebug.bak
 Objects/*.Bak

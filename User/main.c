@@ -24,11 +24,7 @@
 /* 外部时间互斥量 */
 extern SemaphoreHandle_t xTimeMutex;
 
-/* 两个互斥量改为静态创建：这样内核堆(ucHeap)里就再没有任何分配者，
- * configTOTAL_HEAP_SIZE 可以从 1KB 缩到 128B 的兜底值。
- * 代价是 .bss 多出两个 StaticSemaphore_t（各约 80 字节）。 */
-static StaticSemaphore_t xOLEDMutexBuffer;
-static StaticSemaphore_t xTimeMutexBuffer;
+/* 两个互斥量都用动态 API 创建，内核对象直接来自 configTOTAL_HEAP_SIZE(20KB)。 */
 
 int main(void)
 {
@@ -45,7 +41,7 @@ int main(void)
      * 之后 USART1_Init() 再接管为 HC-06 正常收发。 */
     BSP_Log_Init();
     BSP_Log_Puts("\r\n\r\n=== MEDBOX BSP BOOT ===\r\n");
-    BSP_Log_Puts("build: BSP static-tasks heap-128B stacks-trimmed\r\n");
+    BSP_Log_Puts("build: BSP + dynamic tasks, heap 20KB\r\n");
 
     /* 内存自检：确认 0x20004C00-0x2000C000 可读写、无混叠。
      * 放在 RTOS 堆与任务创建之前，此时该区间无人使用，可以安全破坏。 */
@@ -62,7 +58,7 @@ int main(void)
 
     /* OLED互斥量 */
     extern SemaphoreHandle_t xOLEDMutex;
-    xOLEDMutex = xSemaphoreCreateMutexStatic(&xOLEDMutexBuffer);
+    xOLEDMutex = xSemaphoreCreateMutex();
     if(xOLEDMutex == NULL)
     {
         OLED_ShowString(1, 1, "Mutex Fail");
@@ -70,7 +66,7 @@ int main(void)
     }
 
     /* 时间互斥量 */
-    xTimeMutex = xSemaphoreCreateMutexStatic(&xTimeMutexBuffer);
+    xTimeMutex = xSemaphoreCreateMutex();
     if(xTimeMutex == NULL)
     {
         OLED_ShowString(1, 1, "TimeMutex Fail");
@@ -111,11 +107,10 @@ int main(void)
      * AutoDebug 以串口是否收到该令牌判定成功。 */
     BSP_Log_Puts("[ALL TESTS PASSED]\r\n");
 
-    /* 任务创建任务本身也用静态内存，堆里不再有任务栈与TCB。 */
-    AppTaskCreate_Handle = xTaskCreateStatic((TaskFunction_t)AppTaskCreate, "AppTaskCreate",
-                                             APPTASKCREATE_STACK_WORDS, NULL, 1,
-                                             AppTaskCreate_Stack, &AppTaskCreate_TCB);
-    xReturn = (AppTaskCreate_Handle != NULL) ? pdPASS : pdFAIL;
+    /* 任务创建任务本身也走动态创建，栈与 TCB 从 20KB 堆里分配。 */
+    xReturn = xTaskCreate((TaskFunction_t)AppTaskCreate, "AppTaskCreate",
+                          APPTASKCREATE_STACK_WORDS, NULL, 1,
+                          &AppTaskCreate_Handle);
 
     if (pdPASS == xReturn)
     {

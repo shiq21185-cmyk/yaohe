@@ -145,49 +145,21 @@ volatile uint8_t g_volume = 1;                    // 当前音量 1-5
 // ==================== RTOS对象 ====================
 SemaphoreHandle_t xTimeMutex = NULL;
 
-// ---- 空闲任务的静态内存（FreeRTOS回调直接返回给内核） ----
-StackType_t Idle_Task_Stack[configMINIMAL_STACK_SIZE];
-StaticTask_t Idle_Task_TCB;
-
-#if ( configUSE_TIMERS == 1 )
-// 只有启用软件定时器时才需要。本工程 configUSE_TIMERS == 0，
-// 下面两块不参与编译，省下约 600 字节 RAM。
-StackType_t Timer_Task_Stack[configTIMER_TASK_STACK_DEPTH];
-StaticTask_t Timer_Task_TCB;
-#endif
-
-// ==================== 应用任务的静态内存 ====================
-// 全部任务改用 xTaskCreateStatic，堆(ucHeap)不再为任务栈和TCB买单。
+// ==================== 任务的栈与 TCB ====================
+// 本工程采用 FreeRTOS 的大众用法：所有任务都用 xTaskCreate() 动态创建，
+// 栈与 TCB 由内核从 configTOTAL_HEAP_SIZE(16KB) 里分配。因此这里不再需要
+// 任何 StackType_t / StaticTask_t 静态缓冲，也不再需要
+// vApplicationGetIdleTaskMemory() / vApplicationGetTimerTaskMemory() 这类
+// 回调（configSUPPORT_STATIC_ALLOCATION 已设为 0）。
 //
-// 各任务的栈深常量（XXX_TASK_STACK_WORDS）统一定义在 app_tasks.h，
-// 那里写了完整的取值依据、调用图实测深度对照表，以及两个必须注意的坑
-// （printf 系列的 "Unknown Stack Size"、以及 esp_cmd_buf 静态化之后
-// main/Upload_Task 深度大幅下降这件事）。改栈深请改 app_tasks.h。
+// 各任务的栈深常量（XXX_TASK_STACK_WORDS）定义在 app_tasks.h，
+// 那里写了完整的取值依据、调用图实测深度对照表，以及 printf 系列的
+// "Unknown Stack Size" 这个坑。改栈深请改 app_tasks.h。
 //
 // configCHECK_FOR_STACK_OVERFLOW 已设为 2：一旦某任务真的溢出，会通过
 // 串口打印 [STACK-OVERFLOW] task=<名> 并停机，而不是静默跑飞。
 // 上板后 vApplicationIdleHook() 会在启动 31 秒时打印各任务剩余栈水位
 // （[STACK-WATERMARK] free bytes per task:），据此再决定是否继续收紧。
-
-StackType_t   AppTaskCreate_Stack[APPTASKCREATE_STACK_WORDS];
-StaticTask_t  AppTaskCreate_TCB;
-
-StackType_t   HX711_Task_Stack[HX711_TASK_STACK_WORDS];
-StaticTask_t  HX711_Task_TCB;
-StackType_t   Display_Task_Stack[DISPLAY_TASK_STACK_WORDS];
-StaticTask_t  Display_Task_TCB;
-StackType_t   DHT11_Task_Stack[DHT11_TASK_STACK_WORDS];
-StaticTask_t  DHT11_Task_TCB;
-StackType_t   Upload_Task_Stack[UPLOAD_TASK_STACK_WORDS];
-StaticTask_t  Upload_Task_TCB;
-StackType_t   Key_Task_Stack[KEY_TASK_STACK_WORDS];
-StaticTask_t  Key_Task_TCB;
-StackType_t   Time_Task_Stack[TIME_TASK_STACK_WORDS];
-StaticTask_t  Time_Task_TCB;
-StackType_t   Servo_Task_Stack[SERVO_TASK_STACK_WORDS];
-StaticTask_t  Servo_Task_TCB;
-StackType_t   Voice_Task_Stack[VOICE_TASK_STACK_WORDS];
-StaticTask_t  Voice_Task_TCB;
 
 TaskHandle_t AppTaskCreate_Handle = NULL;
 TaskHandle_t HX711_Task_Handle = NULL;
@@ -204,32 +176,6 @@ TaskHandle_t Voice_Task_Handle = NULL;
 #define TEMP_UPLOAD_THRESHOLD   0.2f
 #define HUMID_UPLOAD_THRESHOLD  1.0f
 #define UPLOAD_MIN_INTERVAL     500
-
-// ==================================================
-// FreeRTOS系统函数 - 提供静态内存
-// ==================================================
-
-// 设置空闲任务的内存
-void vApplicationGetIdleTaskMemory(StaticTask_t **ppxIdleTaskTCBBuffer,
-                                   StackType_t **ppxIdleTaskStackBuffer,
-                                   uint32_t *pulIdleTaskStackSize)
-{
-    *ppxIdleTaskTCBBuffer = &Idle_Task_TCB;
-    *ppxIdleTaskStackBuffer = Idle_Task_Stack;
-    *pulIdleTaskStackSize = configMINIMAL_STACK_SIZE;
-}
-
-#if ( configUSE_TIMERS == 1 )
-// 设置定时器任务的内存（本工程未启用软件定时器，此函数不会被内核调用）
-void vApplicationGetTimerTaskMemory(StaticTask_t **ppxTimerTaskTCBBuffer,
-                                    StackType_t **ppxTimerTaskStackBuffer,
-                                    uint32_t *pulIdleTaskStackSize)
-{
-    *ppxTimerTaskTCBBuffer = &Timer_Task_TCB;
-    *ppxTimerTaskStackBuffer = Timer_Task_Stack;
-    *pulIdleTaskStackSize = configTIMER_TASK_STACK_DEPTH;
-}
-#endif
 
 // ==================================================
 // 上传数据相关函数
@@ -691,37 +637,39 @@ void UpdateDisplay(void)
 // 任务创建和管理
 // ==================================================
 
-// 创建所有FreeRTOS任务（全部静态分配，不消耗ucHeap）
+// 创建所有FreeRTOS任务（动态分配：栈与TCB来自 configTOTAL_HEAP_SIZE(16KB)）
 void AppTaskCreate(void)
 {
     taskENTER_CRITICAL();
 
-    HX711_Task_Handle = xTaskCreateStatic((TaskFunction_t)HX711_Task, "HX711_Task",
-        HX711_TASK_STACK_WORDS, NULL, 4, HX711_Task_Stack, &HX711_Task_TCB);
-    Display_Task_Handle = xTaskCreateStatic((TaskFunction_t)Display_Task, "Display_Task",
-        DISPLAY_TASK_STACK_WORDS, NULL, 3, Display_Task_Stack, &Display_Task_TCB);
-    DHT11_Task_Handle = xTaskCreateStatic((TaskFunction_t)DHT11_Task, "DHT11_Task",
-        DHT11_TASK_STACK_WORDS, NULL, 2, DHT11_Task_Stack, &DHT11_Task_TCB);
-    Upload_Task_Handle = xTaskCreateStatic((TaskFunction_t)Upload_Task, "Upload_Task",
-        UPLOAD_TASK_STACK_WORDS, NULL, 3, Upload_Task_Stack, &Upload_Task_TCB);
+    // xTaskCreate 的返回值是 BaseType_t（pdPASS/pdFAIL），不是句柄；
+    // 句柄通过最后一个参数传出，失败时它保持为 NULL，所以下面统一用 NULL 检查。
+    (void)xTaskCreate((TaskFunction_t)HX711_Task, "HX711_Task",
+        HX711_TASK_STACK_WORDS, NULL, 4, &HX711_Task_Handle);
+    (void)xTaskCreate((TaskFunction_t)Display_Task, "Display_Task",
+        DISPLAY_TASK_STACK_WORDS, NULL, 3, &Display_Task_Handle);
+    (void)xTaskCreate((TaskFunction_t)DHT11_Task, "DHT11_Task",
+        DHT11_TASK_STACK_WORDS, NULL, 2, &DHT11_Task_Handle);
+    (void)xTaskCreate((TaskFunction_t)Upload_Task, "Upload_Task",
+        UPLOAD_TASK_STACK_WORDS, NULL, 3, &Upload_Task_Handle);
     // 优先级4：比显示任务高
-    Key_Task_Handle = xTaskCreateStatic((TaskFunction_t)Key_Task, "Key_Task",
-        KEY_TASK_STACK_WORDS, NULL, 4, Key_Task_Stack, &Key_Task_TCB);
-    Time_Task_Handle = xTaskCreateStatic((TaskFunction_t)Time_Task, "Time_Task",
-        TIME_TASK_STACK_WORDS, NULL, 4, Time_Task_Stack, &Time_Task_TCB);
-    Servo_Task_Handle = xTaskCreateStatic((TaskFunction_t)Servo_Task, "Servo_Task",
-        SERVO_TASK_STACK_WORDS, NULL, 3, Servo_Task_Stack, &Servo_Task_TCB);
+    (void)xTaskCreate((TaskFunction_t)Key_Task, "Key_Task",
+        KEY_TASK_STACK_WORDS, NULL, 4, &Key_Task_Handle);
+    (void)xTaskCreate((TaskFunction_t)Time_Task, "Time_Task",
+        TIME_TASK_STACK_WORDS, NULL, 4, &Time_Task_Handle);
+    (void)xTaskCreate((TaskFunction_t)Servo_Task, "Servo_Task",
+        SERVO_TASK_STACK_WORDS, NULL, 3, &Servo_Task_Handle);
     // 优先级4：configMAX_PRIORITIES为5，有效范围0..4，原值6会被内核静默钳位
-    Voice_Task_Handle = xTaskCreateStatic((TaskFunction_t)Voice_Task, "Voice_Task",
-        VOICE_TASK_STACK_WORDS, NULL, 4, Voice_Task_Stack, &Voice_Task_TCB);
+    (void)xTaskCreate((TaskFunction_t)Voice_Task, "Voice_Task",
+        VOICE_TASK_STACK_WORDS, NULL, 4, &Voice_Task_Handle);
 
     if (HX711_Task_Handle == NULL || Display_Task_Handle == NULL ||
         DHT11_Task_Handle == NULL || Upload_Task_Handle == NULL ||
         Key_Task_Handle == NULL || Time_Task_Handle == NULL ||
         Servo_Task_Handle == NULL || Voice_Task_Handle == NULL)
     {
-        // 静态创建失败只会因为参数非法（栈/TCB为空或栈深为0）
-        BSP_Log_Puts("[TASK-CREATE-FAILED] static task creation returned NULL\r\n");
+        // 动态创建失败只可能是堆空间不足，句柄保持为 NULL
+        BSP_Log_Puts("[TASK-CREATE-FAILED] xTaskCreate returned NULL (heap exhausted)\r\n");
         while (1) { }
     }
 
@@ -805,6 +753,14 @@ void vApplicationIdleHook(void)
             BSP_Log_Puts("\r\n[STACK-WATERMARK] free bytes per task:\r\n");
             StackWatermarkReport();
             BSP_Log_Puts("[STACK-WATERMARK-END]\r\n");
+            /* 任务全部动态创建，这里顺带把内核堆的余量报出来：
+             * 一眼就能看出 app_tasks.h 的栈深和 configTOTAL_HEAP_SIZE
+             * 配得合不合适（min-ever-free 是历史最低水位）。 */
+            BSP_Log_Puts("[HEAP] free=");
+            BSP_Log_Dec((uint32_t)xPortGetFreeHeapSize());
+            BSP_Log_Puts("B min-ever-free=");
+            BSP_Log_Dec((uint32_t)xPortGetMinimumEverFreeHeapSize());
+            BSP_Log_Puts("B total=20480B\r\n");
         }
     }
 }
