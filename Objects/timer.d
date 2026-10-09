@@ -1,4 +1,5 @@
 .\objects\timer.o: Systerm\Timer.c
+.\objects\timer.o: Systerm\Timer.h
 .\objects\timer.o: .\Start\stm32f10x.h
 .\objects\timer.o: .\Start\core_cm3.h
 .\objects\timer.o: D:\Keil5 stm32\ARM\ARMCC\Bin\..\include\stdint.h
@@ -28,3 +29,4 @@
 .\objects\timer.o: .\Library\stm32f10x_usart.h
 .\objects\timer.o: .\Library\stm32f10x_wwdg.h
 .\objects\timer.o: .\Library\misc.h
+.\objects\timer.o: .\BSP\bsp_time.h

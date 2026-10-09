@@ -417,6 +417,56 @@
               <FileType>1</FileType>
               <FilePath>.\BSP\cm_backtrace_port.c</FilePath>
             </File>
+            <File>
+              <FileName>bsp_gpio.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\BSP\bsp_gpio.c</FilePath>
+            </File>
+            <File>
+              <FileName>bsp_gpio.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\BSP\bsp_gpio.h</FilePath>
+            </File>
+            <File>
+              <FileName>bsp_uart.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\BSP\bsp_uart.c</FilePath>
+            </File>
+            <File>
+              <FileName>bsp_uart.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\BSP\bsp_uart.h</FilePath>
+            </File>
+            <File>
+              <FileName>bsp_time.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\BSP\bsp_time.c</FilePath>
+            </File>
+            <File>
+              <FileName>bsp_time.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\BSP\bsp_time.h</FilePath>
+            </File>
+            <File>
+              <FileName>bsp_flash.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\BSP\bsp_flash.c</FilePath>
+            </File>
+            <File>
+              <FileName>bsp_flash.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\BSP\bsp_flash.h</FilePath>
+            </File>
+            <File>
+              <FileName>bsp_i2c.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\BSP\bsp_i2c.c</FilePath>
+            </File>
+            <File>
+              <FileName>bsp_i2c.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\BSP\bsp_i2c.h</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

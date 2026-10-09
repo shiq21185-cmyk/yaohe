@@ -16,8 +16,9 @@
  * 缓冲是 BSP_Log_Dec 的 11 字节），所以 256B 足够。 */
 #define configMINIMAL_STACK_SIZE    ( ( unsigned short ) 64 )
 /* 内核堆已经没有任何分配者：任务栈/TCB 走静态分配，
- * 三个信号量（xOLEDMutex / xTimeMutex / xVoiceSemaphore）也都改成了
- * Static 版本，软件定时器已关闭。这里只留 128 字节兜底：
+ * 两个互斥量（xOLEDMutex / xTimeMutex）也都改成了 Static 版本，
+ * 语音信号量随 USART3 中断改造（ISR 只收字节、任务轮询组帧）一并移除，
+ * 软件定时器已关闭。这里只留 128 字节兜底：
  * heap_4 的 prvHeapInit() 需要一个能放下块头(8B)加一个空闲块的极小空间，
  * 万一将来有代码偷偷调用 pvPortMalloc，vApplicationMallocFailedHook()
  * 会在串口打印 [MALLOC-FAILED] 而不是悄悄跑飞。 */

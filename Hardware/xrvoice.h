@@ -34,7 +34,6 @@
 #define XRVOICE_QUERY_TIME      0x15    // 查询时间
 
 // 声明
-extern SemaphoreHandle_t xVoiceSemaphore;
 
 // 回调函数类型定义
 typedef void (*VoiceCommandCallback_t)(uint8_t command, uint8_t param);

@@ -45,4 +45,6 @@
 .\objects\xrvoice.o: D:\Keil5 stm32\ARM\ARMCC\Bin\..\include\string.h
 .\objects\xrvoice.o: .\Systerm\Delay.h
 .\objects\xrvoice.o: Hardware\OLED.h
+.\objects\xrvoice.o: .\BSP\bsp_gpio.h
+.\objects\xrvoice.o: .\BSP\bsp_uart.h
 .\objects\xrvoice.o: D:\Keil5 stm32\ARM\ARMCC\Bin\..\include\stdio.h

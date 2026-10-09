@@ -13,18 +13,9 @@ u8 Flag_Error = 0;
 /* 初始化 HX711：PB14 输出时钟，PB15 上拉输入数据。 */
 void Init_HX711pin(void)
 {
-    GPIO_InitTypeDef GPIO_InitStructure;
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
-
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_14;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_Init(GPIOB, &GPIO_InitStructure);
-
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_15;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
-    GPIO_Init(GPIOB, &GPIO_InitStructure);
-    GPIO_SetBits(GPIOB, GPIO_Pin_14);
+    BSP_GPIO_ConfigOutPP(HX711_SCK_PORT, HX711_SCK_PIN);
+    BSP_GPIO_ConfigInPullUp(HX711_DOUT_PORT, HX711_DOUT_PIN);
+    HX711_SCK_HIGH();
 }
 
 /* 读取 HX711 的 24 位有符号原始数据，并完成符号位转换。 */

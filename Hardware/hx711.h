@@ -3,11 +3,19 @@
 
 #include "stm32f10x.h"
 #include "stdlib.h"
+#include "bsp_gpio.h"
 
-/* HX711 数据接口：SCK 使用 PB14，DOUT 使用 PB15。 */
-#define HX711_SCK_HIGH()  GPIO_SetBits(GPIOB, GPIO_Pin_14)
-#define HX711_SCK_LOW()   GPIO_ResetBits(GPIOB, GPIO_Pin_14)
-#define HX711_DOUT_READ() GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_15)
+/* HX711 数据接口：SCK 使用 PB14，DOUT 使用 PB15。
+ * 时序宏改走 BSP_GPIO，驱动层不再直接触碰 GPIO 寄存器。 */
+#define HX711_SCK_PORT    GPIOB
+#define HX711_SCK_PIN     GPIO_Pin_14
+#define HX711_DOUT_PORT   GPIOB
+#define HX711_DOUT_PIN    GPIO_Pin_15
+
+#define HX711_SCK_HIGH()  BSP_GPIO_Set(HX711_SCK_PORT, HX711_SCK_PIN)
+#define HX711_SCK_LOW()   BSP_GPIO_Reset(HX711_SCK_PORT, HX711_SCK_PIN)
+/* 返回 0/1；HX711_Read 里与 == 1 比较，语义不变。 */
+#define HX711_DOUT_READ() BSP_GPIO_Read(HX711_DOUT_PORT, HX711_DOUT_PIN)
 
 void Init_HX711pin(void);
 u32 HX711_Read(void);

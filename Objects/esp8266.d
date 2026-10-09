@@ -42,5 +42,7 @@
 .\objects\esp8266.o: .\FreeRTOS\include\mpu_wrappers.h
 .\objects\esp8266.o: .\FreeRTOS\include\semphr.h
 .\objects\esp8266.o: .\FreeRTOS\include\queue.h
+.\objects\esp8266.o: .\BSP\bsp_gpio.h
+.\objects\esp8266.o: .\BSP\bsp_uart.h
 .\objects\esp8266.o: D:\Keil5 stm32\ARM\ARMCC\Bin\..\include\string.h
 .\objects\esp8266.o: D:\Keil5 stm32\ARM\ARMCC\Bin\..\include\stdio.h

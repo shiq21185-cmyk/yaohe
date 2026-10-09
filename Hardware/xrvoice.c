@@ -4,13 +4,14 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "OLED.h"
+#include "bsp_gpio.h"
+#include "bsp_uart.h"
 #include <stdio.h>
 
 // ==================== 全局变量 ====================
 static uint8_t uart3_rx_buffer[XRVOICE_RX_BUFFER_SIZE];
 static volatile uint8_t uart3_rx_index = 0;
 static volatile uint8_t uart3_rx_complete = 0;
-static volatile uint8_t voice_processing = 0;
 
 static volatile uint8_t g_sleep_playing = 0;
 // 指令去抖
@@ -18,9 +19,6 @@ static volatile uint32_t valid_frame_count = 0;
 static volatile uint32_t last_cmd_time = 0;
 static volatile uint8_t last_cmd_type = 0;
 static volatile uint8_t last_cmd_id = 0;
-
-// 语音信号量
-SemaphoreHandle_t xVoiceSemaphore = NULL;
 
 // 唤醒状态
 static volatile uint8_t wakeup_state = 0;
@@ -52,12 +50,7 @@ static volatile uint8_t g_last_play_cmd_id = 0;    // 上次播放的指令ID
 
 static void XRVoice_Send(uint8_t* data, uint8_t len)
 {
-    for(int i = 0; i < len; i++)
-    {
-        while(!(USART3->SR & USART_FLAG_TXE));
-        USART3->DR = data[i];
-    }
-    while(!(USART3->SR & USART_FLAG_TC));
+    BSP_UART_Send(BSP_UART_VOICE, data, len);
 }
 
 static void CheckWakeupTimeout(void)
@@ -168,59 +161,11 @@ static void XRVoice_ParseCommand(uint8_t cmd_type, uint8_t cmd_id)
 
 void XRVoice_Init(VoiceCommandCallback_t callback)
 {
-    if(xVoiceSemaphore == NULL)
-    {
-        /* 静态创建，不占用 FreeRTOS 堆（堆已缩到最小值，只留兜底空间） */
-        static StaticSemaphore_t xVoiceSemaphoreBuffer;
-        xVoiceSemaphore = xSemaphoreCreateBinaryStatic(&xVoiceSemaphoreBuffer);
-    }
-
     voice_callback = callback;
 
-    // 先关闭USART3进行配置
-    USART_Cmd(USART3, DISABLE);
-
-    // 配置USART3 - PB10(TX), PB11(RX)
-    GPIO_InitTypeDef GPIO_InitStructure;
-    USART_InitTypeDef USART_InitStructure;
-
-    // 开启时钟
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
-    RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART3, ENABLE);
-
-    // 配置TX (PB10)
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_10;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
-    GPIO_Init(GPIOB, &GPIO_InitStructure);
-
-    // 配置RX (PB11)
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_11;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
-    GPIO_Init(GPIOB, &GPIO_InitStructure);
-
-    // USART配置 - 9600波特率
-    USART_InitStructure.USART_BaudRate = 9600;
-    USART_InitStructure.USART_WordLength = USART_WordLength_8b;
-    USART_InitStructure.USART_StopBits = USART_StopBits_1;
-    USART_InitStructure.USART_Parity = USART_Parity_No;
-    USART_InitStructure.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
-    USART_InitStructure.USART_Mode = USART_Mode_Rx | USART_Mode_Tx;
-    USART_Init(USART3, &USART_InitStructure);
-
-    // 开启接收中断
-    USART_ITConfig(USART3, USART_IT_RXNE, ENABLE);
-
-    // 配置NVIC
-    NVIC_InitTypeDef NVIC_InitStructure;
-    NVIC_InitStructure.NVIC_IRQChannel = USART3_IRQn;
-    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 2;
-    NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
-    NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-    NVIC_Init(&NVIC_InitStructure);
-
-    // 开启USART
-    USART_Cmd(USART3, ENABLE);
+    /* USART3（PB10/TX、PB11/RX）的时钟、GPIO 复用、9600 波特率与中断优先级
+     * 全部由 BSP_UART 统一配置，本层只负责组帧与语义解析。 */
+    BSP_UART_Init(BSP_UART_VOICE, 9600U);
 
     // 初始化接收缓冲区和状态变量
     memset((uint8_t*)uart3_rx_buffer, 0, XRVOICE_RX_BUFFER_SIZE);
@@ -228,7 +173,6 @@ void XRVoice_Init(VoiceCommandCallback_t callback)
     uart3_rx_complete = 0;
     wakeup_state = 0;
     wakeup_time = 0;
-    voice_processing = 0;
 
     // 初始化指令统计变量
     valid_frame_count = 0;
@@ -244,10 +188,35 @@ void XRVoice_Init(VoiceCommandCallback_t callback)
 
 void XRVoice_Task(void)
 {
+    /* USART3 中断只把字节推进 BSP_UART 环形缓冲，5 字节组帧在这里完成。
+     * 本函数由 Voice_Task 以 10ms 周期调用，而 5 字节帧 @9600bps 约 5.2ms
+     * 发完，因此不会漏字节。 */
+    {
+        int b;
+        while((b = BSP_UART_GetByte(BSP_UART_VOICE)) >= 0)
+        {
+            if(uart3_rx_index < XRVOICE_RX_BUFFER_SIZE)
+            {
+                uart3_rx_buffer[uart3_rx_index++] = (uint8_t)b;
+
+                // 接收到5个字节表示一帧指令接收完成
+                if(uart3_rx_index == 5)
+                {
+                    uart3_rx_complete = 1;
+                    break;      /* 先把这一帧处理掉，剩余字节下一轮再取 */
+                }
+            }
+            else
+            {
+                // 缓冲区溢出，重置接收
+                uart3_rx_index = 0;
+                memset((uint8_t*)uart3_rx_buffer, 0, XRVOICE_RX_BUFFER_SIZE);
+            }
+        }
+    }
+
     if(uart3_rx_complete)
     {
-        voice_processing = 1;
-
         // 检查是否是合法的语音指令帧 (AA 55 cmd_type cmd_id FB)
         if(uart3_rx_index == 5 &&
            uart3_rx_buffer[0] == 0xAA &&
@@ -268,7 +237,6 @@ void XRVoice_Task(void)
         memset((uint8_t*)uart3_rx_buffer, 0, XRVOICE_RX_BUFFER_SIZE);
         uart3_rx_index = 0;
         uart3_rx_complete = 0;
-        voice_processing = 0;
     }
 
     // 检查自环超时
@@ -389,7 +357,9 @@ void XRVoice_SetVolume(uint8_t volume)
 
     // 发送音量设置指令：AA 55 0x06 音量值 FB
     uint8_t cmd[5] = {0xAA, 0x55, 0x06, volume, 0xFB};
-    Usart_SendString(USART1, cmd, 5);
+    /* 音量指令必须发回语音模块自己的串口（USART3）。
+     * 原实现误发到 USART1（HC-06 蓝牙口），导致音量设置从未生效。 */
+    BSP_UART_Send(BSP_UART_VOICE, cmd, 5);
 }
 
 // 停止播放
@@ -403,38 +373,13 @@ void XRVoice_Stop(void)
 }
 
 // ==================== USART3中断服务函数 ====================
+// 中断里只做一件事：把收到的字节推进 BSP_UART 的环形缓冲。
+// 组帧与指令解析全部交给 XRVoice_Task() 在任务上下文完成。
 void USART3_IRQHandler(void)
 {
     if(USART_GetITStatus(USART3, USART_IT_RXNE) != RESET)
     {
-        uint8_t data = USART_ReceiveData(USART3);
-
-        if(!voice_processing)
-        {
-            if(uart3_rx_index < XRVOICE_RX_BUFFER_SIZE)
-            {
-                uart3_rx_buffer[uart3_rx_index++] = data;
-
-                // 接收到5个字节表示一帧指令接收完成
-                if(uart3_rx_index == 5)
-                {
-                    uart3_rx_complete = 1;
-
-                    // 释放信号量通知任务处理
-                    if(xVoiceSemaphore != NULL)
-                    {
-                        xSemaphoreGive(xVoiceSemaphore);
-                    }
-                }
-            }
-            else
-            {
-                // 缓冲区溢出，重置接收
-                uart3_rx_index = 0;
-                memset((uint8_t*)uart3_rx_buffer, 0, XRVOICE_RX_BUFFER_SIZE);
-            }
-        }
-
+        BSP_UART_RxIsr(BSP_UART_VOICE);
         USART_ClearITPendingBit(USART3, USART_IT_RXNE);
     }
 }

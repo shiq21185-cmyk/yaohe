@@ -44,6 +44,7 @@
 .\objects\app_tasks.o: .\Hardware\OLED.h
 .\objects\app_tasks.o: .\Hardware\hx711.h
 .\objects\app_tasks.o: D:\Keil5 stm32\ARM\ARMCC\Bin\..\include\stdlib.h
+.\objects\app_tasks.o: .\BSP\bsp_gpio.h
 .\objects\app_tasks.o: .\Hardware\dht11.h
 .\objects\app_tasks.o: .\Hardware\esp8266.h
 .\objects\app_tasks.o: .\Hardware\xrvoice.h

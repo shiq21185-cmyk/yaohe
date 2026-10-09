@@ -6,11 +6,8 @@
 #include <string.h>
 #include <stdio.h>
 #include "app_tasks.h"
-#include "stm32f10x_flash.h"
-
-#define ALARM_FLASH_ADDRESS       0x0800FC00UL
-#define ALARM_FLASH_MAGIC         0xA65AU
-#define ALARM_FLASH_WORD_COUNT    5U
+#include "bsp_uart.h"
+#include "bsp_flash.h"
 
 
 volatile HC06_Time_t g_bt_time = {0};
@@ -35,6 +32,11 @@ volatile uint8_t g_bt_alarm_updated = 0;
 
 volatile uint8_t g_bt_alarm_index = 0;
 
+/* 闹钟配置脏标志：指令解析处只置位，真正的 Flash 擦写统一由 HC06_Poll()
+ * 在任务上下文执行。这样 USART1 中断里不再出现 FLASH_ErasePage 与
+ * taskENTER_CRITICAL()（后者在 ISR 中本来就是非法用法）。 */
+static volatile uint8_t g_bt_alarm_dirty = 0;
+
 static uint16_t Alarm_Pack(const volatile HC06_Alarm_t *alarm)
 {
     return (uint16_t)alarm->hour |
@@ -52,19 +54,18 @@ static uint8_t Alarm_DataValid(uint16_t word)
 /* 从 Flash 读取并校验已保存的三组闹钟。 */
 static void HC06_LoadAlarms(void)
 {
-    const volatile uint16_t *flash = (const volatile uint16_t *)ALARM_FLASH_ADDRESS;
-    uint16_t checksum;
+    uint16_t words[BSP_FLASH_ALARM_WORD_COUNT];
     uint8_t i;
 
-    checksum = (uint16_t)(ALARM_FLASH_MAGIC ^ flash[1] ^ flash[2] ^ flash[3] ^ 0x5AA5U);
-    if(flash[0] != ALARM_FLASH_MAGIC || flash[4] != checksum)
+    /* BSP_Flash_ReadAlarms 已经做过 magic 与校验和的检查 */
+    if(!BSP_Flash_ReadAlarms(words))
     {
         return;
     }
 
     for(i = 0; i < 3U; i++)
     {
-        if(!Alarm_DataValid(flash[i + 1U]))
+        if(!Alarm_DataValid(words[i + 1U]))
         {
             return;
         }
@@ -72,40 +73,28 @@ static void HC06_LoadAlarms(void)
 
     for(i = 0; i < 3U; i++)
     {
-        uint16_t word = flash[i + 1U];
+        uint16_t word = words[i + 1U];
         g_bt_alarms[i].hour = (uint8_t)(word & 0xFFU);
         g_bt_alarms[i].minute = (uint8_t)((word >> 8) & 0x7FU);
         g_bt_alarms[i].enabled = (uint8_t)((word >> 15) & 0x01U);
     }
 }
 
-/* 将当前三组闹钟写入 Flash，供下次上电恢复。 */
+/* 将当前三组闹钟写入 Flash，供下次上电恢复。
+ * 打包仍在临界区内完成（保证三个闹钟字段一致），擦写动作交给 BSP Flash 层。 */
 void HC06_SaveAlarms(void)
 {
-    uint16_t words[ALARM_FLASH_WORD_COUNT];
-    uint8_t i;
+    uint16_t words[BSP_FLASH_ALARM_WORD_COUNT];
 
     taskENTER_CRITICAL();
-    words[0] = ALARM_FLASH_MAGIC;
+    words[0] = BSP_FLASH_ALARM_MAGIC;
     words[1] = Alarm_Pack(&g_bt_alarms[0]);
     words[2] = Alarm_Pack(&g_bt_alarms[1]);
     words[3] = Alarm_Pack(&g_bt_alarms[2]);
-    words[4] = (uint16_t)(words[0] ^ words[1] ^ words[2] ^ words[3] ^ 0x5AA5U);
-
-    FLASH_Unlock();
-    FLASH_ClearFlag(FLASH_FLAG_EOP | FLASH_FLAG_PGERR | FLASH_FLAG_WRPRTERR);
-    if(FLASH_ErasePage(ALARM_FLASH_ADDRESS) == FLASH_COMPLETE)
-    {
-        for(i = 0; i < ALARM_FLASH_WORD_COUNT; i++)
-        {
-            if(FLASH_ProgramHalfWord(ALARM_FLASH_ADDRESS + (uint32_t)i * 2U, words[i]) != FLASH_COMPLETE)
-            {
-                break;
-            }
-        }
-    }
-    FLASH_Lock();
+    words[4] = BSP_Flash_AlarmChecksum(words);
     taskEXIT_CRITICAL();
+
+    (void)BSP_Flash_WriteAlarms(words);
 }
 
 
@@ -171,7 +160,7 @@ void HC06_ProcessByte(uint8_t byte)
                     g_bt_alarm_updated = 1;
                     g_bt_alarm_index = alarm_index;
                     taskEXIT_CRITICAL();
-                    HC06_SaveAlarms();
+                    g_bt_alarm_dirty = 1;   /* 真正落盘交给 HC06_Poll() */
                 }
             } else {
 
@@ -193,6 +182,29 @@ void HC06_ProcessByte(uint8_t byte)
         default:
             stage = 0;
             break;
+    }
+}
+
+/* --------------------------------------------------------------------------
+ * 任务上下文的蓝牙消费入口。
+ * USART1 中断只把字节推进 BSP_UART 的环形缓冲，这里负责：
+ *   1) 把缓冲里的字节取出交给 HC06_ProcessByte() 解析三字节协议；
+ *   2) 把解析过程中置起的闹钟脏标志落盘。
+ * 由此 Flash 擦写彻底离开中断上下文，ISR 里也不再出现临界区调用。
+ * -------------------------------------------------------------------------- */
+void HC06_Poll(void)
+{
+    int b;
+
+    while((b = BSP_UART_GetByte(BSP_UART_BT)) >= 0)
+    {
+        HC06_ProcessByte((uint8_t)b);
+    }
+
+    if(g_bt_alarm_dirty)
+    {
+        g_bt_alarm_dirty = 0;
+        HC06_SaveAlarms();
     }
 }
 
@@ -271,7 +283,7 @@ void HC06_SetAlarm(uint8_t index, uint8_t hour, uint8_t minute, uint8_t enabled)
     g_bt_alarm_updated = 1;
     g_bt_alarm_index = index;
     taskEXIT_CRITICAL();
-    HC06_SaveAlarms();
+    g_bt_alarm_dirty = 1;   /* 真正落盘交给 HC06_Poll() */
 }
 
 /* 初始化蓝牙接收状态和默认闹钟配置。 */

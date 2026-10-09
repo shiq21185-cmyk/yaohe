@@ -29,4 +29,5 @@
 .\objects\dht11.o: .\Library\stm32f10x_wwdg.h
 .\objects\dht11.o: .\Library\misc.h
 .\objects\dht11.o: Hardware\dht11.h
+.\objects\dht11.o: .\BSP\bsp_gpio.h
 .\objects\dht11.o: .\Systerm\Delay.h

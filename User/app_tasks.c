@@ -483,9 +483,9 @@ uint8_t ReadDHT11Data(void)
 
     while(retry-- > 0 && !success)
     {
-        __disable_irq();
+        /* 关中断范围由 DHT11_REC_Data() 内部控制：只罩住 40 位采样窗口，
+         * 20ms 起始脉冲期间中断保持开启。 */
         DHT11_REC_Data();
-        __enable_irq();
 
         if(rec_data[0] != 0 || rec_data[2] != 0)
         {
@@ -897,7 +897,9 @@ void HX711_Task(void* parameter)
                     Servo_Open();//开盖
                     // 首次播报
                     if(display_mode == 0) {
+                        OLED_Lock();
                         OLED_ShowString(4, 1, "EMPTY BOX!      ");
+                        OLED_Unlock();
                     }
                     // 代码驱动播放空盒报警响应
                     XRVoice_PlayRaw(0x09, 0x00);
@@ -947,7 +949,6 @@ static void Voice_Command_Callback(uint8_t cmd_type, uint8_t cmd_id)
 }
 
 // 语音任务 - 处理语音识别和播放
-extern SemaphoreHandle_t xVoiceSemaphore;
 static void Voice_Command_Callback(uint8_t cmd_type, uint8_t cmd_id);
 
 void Voice_Task(void* parameter)
@@ -967,17 +968,11 @@ void Voice_Task(void* parameter)
 
     while (1)
     {
-        // 等待语音指令信号，超时10ms
-        if(xSemaphoreTake(xVoiceSemaphore, pdMS_TO_TICKS(10)) == pdTRUE)
-        {
-            // 有指令到达，立即处理
-            XRVoice_Task();
-        }
-        else
-        {
-            // 没有指令时也定期调用，用于超时检查
-            XRVoice_Task();
-        }
+        /* USART3 中断只把字节推进 BSP_UART 环形缓冲，这里按 10ms 周期轮询：
+         * 既完成 5 字节组帧与指令解析，也顺带跑唤醒/自环/播放去抖的超时检查。
+         * 5 字节帧 @9600bps 约 5.2ms 发完，10ms 周期不会漏字节。 */
+        vTaskDelay(pdMS_TO_TICKS(10));
+        XRVoice_Task();
     }
 }
 
@@ -991,9 +986,8 @@ void DHT11_Task(void* parameter)
     {
         vTaskDelayUntil(&xLastWakeTime, xFrequency);
 
-        __disable_irq();
+        /* 关中断范围由 DHT11_REC_Data() 内部控制，见 Hardware/DHT11.c。 */
         DHT11_REC_Data();
-        __enable_irq();
 
         uint8_t success = 0;
         if(rec_data[0] != 0 && rec_data[2] != 0 &&
@@ -1010,13 +1004,11 @@ void DHT11_Task(void* parameter)
             dht11_last_status = 2;
         }
 
-        if(display_mode == 0 && !success)
+        if(display_mode == 0)
         {
-            OLED_ShowChar(2, 16, 'F');
-        }
-        else if(display_mode == 0 && success)
-        {
-            OLED_ShowChar(2, 16, ' ');
+            OLED_Lock();
+            OLED_ShowChar(2, 16, success ? ' ' : 'F');
+            OLED_Unlock();
         }
     }
 }
@@ -1077,6 +1069,10 @@ void Display_Task(void* parameter)
         current_volume = g_volume;
         if(key_pressed) g_key1_pressed = 0;
         taskEXIT_CRITICAL();
+
+        /* 本帧所有 OLED 写操作都在这把锁内完成：一帧画面不会再被
+         * Voice_Task / DHT11_Task 的插空写屏撕成两半。 */
+        OLED_Lock();
 
         if(upload_status != 0) {
             if((xTaskGetTickCount() - g_upload_display_tick) > pdMS_TO_TICKS(400)) {
@@ -1396,6 +1392,8 @@ void Display_Task(void* parameter)
         last_dht_status = dht_status;
         last_sync_valid = sync_valid;
         last_has_bt = has_new_bt;
+
+        OLED_Unlock();
     }
 }
 
@@ -1422,7 +1420,17 @@ void Time_Task(void* parameter)
 
     while (1)
     {
-        vTaskDelay(pdMS_TO_TICKS(TIME_TASK_DELAY_MS));  // 约1秒
+        /* 蓝牙三字节协议是逐字节到达的，而 HC06_ProcessByte 内部有 500ms 的
+         * 帧间超时。所以把整个周期拆成 5 片，每片消费一次 UART 环形缓冲，
+         * 使最坏情况下相邻两字节的处理间隔不超过周期的 1/5（约 49ms）。 */
+        {
+            uint8_t bt_slice;
+            for(bt_slice = 0; bt_slice < 5U; bt_slice++)
+            {
+                vTaskDelay(pdMS_TO_TICKS(TIME_TASK_DELAY_MS / 5));
+                HC06_Poll();
+            }
+        }
 
         run_count++;
         Update_Time();
@@ -1499,7 +1507,9 @@ void Time_Task(void* parameter)
                 XRVoice_PlayRaw(0x09, alarm_index);  // alarm_index: 1->1, 2->2, 3->3
 
                 if(display_mode == 0) {
+                    OLED_Lock();
                     OLED_ShowString(4, 1, "TAKE MEDICINE!  ");
+                    OLED_Unlock();
                 }
 
                 alarm_triggered = 1;
@@ -1532,7 +1542,9 @@ void Time_Task(void* parameter)
                     Servo_Open();
                     g_alarm_servo_state = 2; // 进入等待第二次遮挡关盖状态
                     if(display_mode == 0) {
+                        OLED_Lock();
                         OLED_ShowString(4, 1, "Lid opened!      ");
+                        OLED_Unlock();
                     }
                 }
                 // 第二次遮挡：关闭盖子+停止闹钟
@@ -1550,7 +1562,9 @@ void Time_Task(void* parameter)
                     LED0_OFF();
 
                     if(display_mode == 0) {
+                        OLED_Lock();
                         OLED_ShowString(4, 1, "Medicine taken! ");
+                        OLED_Unlock();
                     }
                 }
             }
@@ -1601,7 +1615,9 @@ void Key_Task(void* parameter)
                     Servo_Open();
                     g_alarm_servo_state = 2; // 进入等待第二次按键状态
                     if(display_mode == 0) {
+                        OLED_Lock();
                         OLED_ShowString(4, 1, "Lid opened!      ");
+                        OLED_Unlock();
                     }
                 }
                 // 第二次按键：关闭盖子+停止闹钟
@@ -1618,7 +1634,9 @@ void Key_Task(void* parameter)
                     LED0_OFF();
 
                     if(display_mode == 0) {
+                        OLED_Lock();
                         OLED_ShowString(4, 1, "Medicine taken! ");
+                        OLED_Unlock();
                     }
                 }
             }
@@ -1673,7 +1691,9 @@ void Key_Task(void* parameter)
                 XRVoice_PlayRaw(0x10, 0x04); // 闹钟界面（界面三）
             }
 
+            OLED_Lock();
             OLED_Clear();
+            OLED_Unlock();
 
         }
 

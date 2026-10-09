@@ -9,6 +9,10 @@
 #include "usart.h"
 #include "OLED.h"
 
+//板级支持包
+#include "bsp_gpio.h"
+#include "bsp_uart.h"
+
 //C库
 #include <string.h>
 #include <stdio.h>
@@ -71,7 +75,7 @@ _Bool ESP8266_SendCmd(char *cmd, char *res) //cmd为命令，res为返回关键�
 
 	unsigned char timeOut = 200;
 
-	Usart_SendString(USART2, (unsigned char *)cmd, strlen((const char *)cmd));
+	BSP_UART_Send(BSP_UART_ESP, (const uint8_t *)cmd, (uint16_t)strlen((const char *)cmd));
 
 	while(timeOut--)
 	{
@@ -101,7 +105,7 @@ void ESP8266_SendData(unsigned char *data, unsigned short len)
 	sprintf(cmdBuf, "AT+CIPSEND=%d\r\n", len);		//发送指令
 	if(!ESP8266_SendCmd(cmdBuf, ">"))			//收到>时可以发送数据
 	{
-		Usart_SendString(USART2, data, len);		//向设备发送数据
+		BSP_UART_Send(BSP_UART_ESP, data, len);		//向设备发送数据
 	}
 
 }
@@ -141,19 +145,13 @@ void ESP8266_SendData(unsigned char *data, unsigned short len)
 void ESP8266_Init(void)
 {
 
-	GPIO_InitTypeDef GPIO_Initure;
+	/* ESP8266 复位引脚 PA1，低电平复位（原注释写作 GPIOA0 是笔误）。
+	 * 时钟与配置交给 BSP_GPIO。 */
+	BSP_GPIO_ConfigOutPP(GPIOA, GPIO_Pin_1);
 
-	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
-
-	//ESP8266复位引脚
-	GPIO_Initure.GPIO_Mode = GPIO_Mode_Out_PP;
-	GPIO_Initure.GPIO_Pin = GPIO_Pin_1;					//GPIOA0-复位
-	GPIO_Initure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_Init(GPIOA, &GPIO_Initure);
-
-	GPIO_WriteBit(GPIOA, GPIO_Pin_1, Bit_RESET);
+	BSP_GPIO_Reset(GPIOA, GPIO_Pin_1);
 	Delay_ms(250);
-	GPIO_WriteBit(GPIOA, GPIO_Pin_1, Bit_SET);
+	BSP_GPIO_Set(GPIOA, GPIO_Pin_1);
 	Delay_ms(500);
 
 	ESP8266_Clear();
@@ -206,7 +204,7 @@ void ESP_MQTTPublish(uint8_t *topic, uint8_t *data)
         ESP8266_Clear();
 
         // 发送命令
-        Usart_SendString(USART2, (unsigned char *)cmd, strlen(cmd));
+        BSP_UART_Send(BSP_UART_ESP, (const uint8_t *)cmd, (uint16_t)strlen(cmd));
 
         // 等待响应，超时处理
         unsigned char timeOut = 50;  // 5秒超时

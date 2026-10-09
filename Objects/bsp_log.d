@@ -29,3 +29,4 @@
 .\objects\bsp_log.o: .\Library\stm32f10x_usart.h
 .\objects\bsp_log.o: .\Library\stm32f10x_wwdg.h
 .\objects\bsp_log.o: .\Library\misc.h
+.\objects\bsp_log.o: BSP\bsp_gpio.h

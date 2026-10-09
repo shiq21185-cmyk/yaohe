@@ -28,3 +28,4 @@
 .\objects\light.o: .\Library\stm32f10x_usart.h
 .\objects\light.o: .\Library\stm32f10x_wwdg.h
 .\objects\light.o: .\Library\misc.h
+.\objects\light.o: .\BSP\bsp_gpio.h

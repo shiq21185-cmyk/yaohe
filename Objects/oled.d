@@ -40,3 +40,4 @@
 .\objects\oled.o: .\FreeRTOS\include\mpu_wrappers.h
 .\objects\oled.o: .\FreeRTOS\include\semphr.h
 .\objects\oled.o: .\FreeRTOS\include\queue.h
+.\objects\oled.o: .\BSP\bsp_i2c.h

@@ -1,4 +1,5 @@
 #include "bsp_log.h"
+#include "bsp_gpio.h"
 
 /* ------------------------------------------------------------------ *
  * Register-level TX on USART1. No library call, no tick dependency.  *
@@ -6,16 +7,14 @@
 
 void BSP_Log_Init(void)
 {
-    GPIO_InitTypeDef  gpio;
     USART_InitTypeDef uart;
 
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA | RCC_APB2Periph_USART1, ENABLE);
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_USART1, ENABLE);
 
-    /* PA9 = TX, alternate function push-pull */
-    gpio.GPIO_Pin   = GPIO_Pin_9;
-    gpio.GPIO_Speed = GPIO_Speed_50MHz;
-    gpio.GPIO_Mode  = GPIO_Mode_AF_PP;
-    GPIO_Init(GPIOA, &gpio);
+    /* PA9 = TX，复用推挽输出；PA9 的 GPIOA 时钟由 BSP_GPIO 内部使能。
+     * 这里刻意不调用 BSP_UART_*：日志口必须早于 BSP_UART 自己可用，
+     * 而且要能在故障上下文里直接读写 DR/SR。 */
+    BSP_GPIO_ConfigAFPP(GPIOA, GPIO_Pin_9);
 
     /* Leave PA10 floating until the real HC-06 driver takes over (it enables RXNE). */
     uart.USART_BaudRate            = 9600;

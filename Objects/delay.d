@@ -1,4 +1,5 @@
 .\objects\delay.o: Systerm\Delay.c
+.\objects\delay.o: Systerm\Delay.h
 .\objects\delay.o: .\Start\stm32f10x.h
 .\objects\delay.o: .\Start\core_cm3.h
 .\objects\delay.o: D:\Keil5 stm32\ARM\ARMCC\Bin\..\include\stdint.h
@@ -28,3 +29,4 @@
 .\objects\delay.o: .\Library\stm32f10x_usart.h
 .\objects\delay.o: .\Library\stm32f10x_wwdg.h
 .\objects\delay.o: .\Library\misc.h
+.\objects\delay.o: .\BSP\bsp_time.h

@@ -8,6 +8,11 @@
 // OLED
 extern SemaphoreHandle_t xOLEDMutex;
 
+/* 一帧显示的边界锁：连续写屏前 OLED_Lock()，全部写完再 OLED_Unlock()。
+ * 驱动内部的显示函数不再自行加锁，全工程只有这一套保护机制。 */
+void OLED_Lock(void);
+void OLED_Unlock(void);
+
 void OLED_Init(void);
 void OLED_Clear(void);
 void OLED_ShowChar(uint8_t Line, uint8_t Column, char Char);

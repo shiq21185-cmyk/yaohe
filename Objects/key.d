@@ -39,3 +39,4 @@
 .\objects\key.o: .\FreeRTOS\include\mpu_wrappers.h
 .\objects\key.o: .\FreeRTOS\include\task.h
 .\objects\key.o: .\FreeRTOS\include\list.h
+.\objects\key.o: .\BSP\bsp_gpio.h

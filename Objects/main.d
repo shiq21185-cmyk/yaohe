@@ -45,6 +45,7 @@
 .\objects\main.o: .\Systerm\sys.h
 .\objects\main.o: .\Hardware\esp8266.h
 .\objects\main.o: .\Hardware\dht11.h
+.\objects\main.o: .\BSP\bsp_gpio.h
 .\objects\main.o: .\Hardware\hx711.h
 .\objects\main.o: D:\Keil5 stm32\ARM\ARMCC\Bin\..\include\stdlib.h
 .\objects\main.o: .\Hardware\usart.h

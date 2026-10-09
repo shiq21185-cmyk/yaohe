@@ -1,19 +1,19 @@
 #include "stm32f10x.h"
+#include "bsp_gpio.h"
 
+/* TIM2_CH2 部分重映射到 PB3 驱动舵机：20 ms 周期、1 MHz 计数。
+ * 注意 PB3/PB4 默认被 JTAG 占用，必须先关掉 JTAG 才能当普通 IO/PWM 用，
+ * 所以这里的调用顺序不能改：AFIO 时钟 -> 重映射 -> 配置引脚。 */
 void PWM_Init(void)
 {
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO, ENABLE);
 
     GPIO_PinRemapConfig(GPIO_Remap_SWJ_JTAGDisable, ENABLE);
     GPIO_PinRemapConfig(GPIO_PartialRemap1_TIM2, ENABLE);
 
-    GPIO_InitTypeDef GPIO_InitStructure;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_3;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_Init(GPIOB, &GPIO_InitStructure);
+    /* 复用推挽输出（含 GPIOB 的 APB2 时钟使能）。 */
+    BSP_GPIO_ConfigAFPP(GPIOB, GPIO_Pin_3);
 
     TIM_InternalClockConfig(TIM2);
 

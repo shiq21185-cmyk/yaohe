@@ -47,6 +47,7 @@
 .\objects\voice_command_handler.o: User\app_tasks.h
 .\objects\voice_command_handler.o: .\Hardware\hx711.h
 .\objects\voice_command_handler.o: D:\Keil5 stm32\ARM\ARMCC\Bin\..\include\stdlib.h
+.\objects\voice_command_handler.o: .\BSP\bsp_gpio.h
 .\objects\voice_command_handler.o: .\Hardware\dht11.h
 .\objects\voice_command_handler.o: .\Hardware\esp8266.h
 .\objects\voice_command_handler.o: .\Hardware\hc06.h

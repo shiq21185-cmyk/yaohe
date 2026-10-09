@@ -1,14 +1,17 @@
 #include "stm32f10x.h"                  // Device header
-void LightSenor_Init(void){
-	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB,ENABLE);
+#include "bsp_gpio.h"
 
-	GPIO_InitTypeDef GPIO_InStructure;
-	GPIO_InStructure.GPIO_Mode = GPIO_Mode_IPU;
-	GPIO_InStructure.GPIO_Pin = GPIO_Pin_4;
-	GPIO_InStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_Init(GPIOB,&GPIO_InStructure);
+/* 光敏模块数字输出 DO：PB4，上拉输入。
+ * 模块上的电位器决定"见光为高"还是"遮光为高"，本层不做极性假设。 */
+#define LIGHT_PORT  GPIOB
+#define LIGHT_PIN   GPIO_Pin_4
+
+void LightSenor_Init(void)
+{
+	BSP_GPIO_ConfigInPullUp(LIGHT_PORT, LIGHT_PIN);
 }
 
-uint8_t LightSenor_Get(void){
-	return GPIO_ReadInputDataBit(GPIOB,GPIO_Pin_4);
+uint8_t LightSenor_Get(void)
+{
+	return BSP_GPIO_Read(LIGHT_PORT, LIGHT_PIN);
 }

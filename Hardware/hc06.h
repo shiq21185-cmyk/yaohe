@@ -28,6 +28,9 @@ extern volatile uint8_t g_bt_alarm_updated;
 extern volatile uint8_t g_bt_alarm_index;
 
 void HC06_Init(void);
+/* 任务上下文的蓝牙消费入口：取环形缓冲里的字节解析协议，并落地闹钟脏标志。
+ * 需要在某个周期任务里被反复调用（当前挂在 Time_Task）。 */
+void HC06_Poll(void);
 void HC06_ProcessByte(uint8_t byte);
 uint8_t HC06_GetTime(HC06_Time_t *time);
 uint8_t HC06_HasNewTime(void);

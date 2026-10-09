@@ -1,6 +1,7 @@
 #include "key.h"
 #include "FreeRTOS.h"
 #include "task.h"
+#include "bsp_gpio.h"
 
 /* 四个按键分别连接到 PB8、PB9、PB6、PB7。 */
 #define KEY1_GPIO_PORT GPIOB
@@ -19,19 +20,11 @@ static Key_t keys[KEY_NUM];
 /* 初始化四个下拉输入按键及其软件状态。 */
 void Key_Init(void)
 {
-    GPIO_InitTypeDef GPIO_InitStructure;
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPD;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-
-    GPIO_InitStructure.GPIO_Pin = KEY1_GPIO_PIN;
-    GPIO_Init(KEY1_GPIO_PORT, &GPIO_InitStructure);
-    GPIO_InitStructure.GPIO_Pin = KEY2_GPIO_PIN;
-    GPIO_Init(KEY2_GPIO_PORT, &GPIO_InitStructure);
-    GPIO_InitStructure.GPIO_Pin = KEY3_GPIO_PIN;
-    GPIO_Init(KEY3_GPIO_PORT, &GPIO_InitStructure);
-    GPIO_InitStructure.GPIO_Pin = KEY4_GPIO_PIN;
-    GPIO_Init(KEY4_GPIO_PORT, &GPIO_InitStructure);
+    /* 下拉输入：松开为低，按下为高。端口时钟由 BSP_GPIO 内部使能。 */
+    BSP_GPIO_ConfigInPullDown(KEY1_GPIO_PORT, KEY1_GPIO_PIN);
+    BSP_GPIO_ConfigInPullDown(KEY2_GPIO_PORT, KEY2_GPIO_PIN);
+    BSP_GPIO_ConfigInPullDown(KEY3_GPIO_PORT, KEY3_GPIO_PIN);
+    BSP_GPIO_ConfigInPullDown(KEY4_GPIO_PORT, KEY4_GPIO_PIN);
 
     for(uint8_t i = 0; i < KEY_NUM; i++)
     {
@@ -49,7 +42,7 @@ void Key_Init(void)
 static uint8_t Key_ReadPin(uint8_t key_num)
 {
     if(key_num >= KEY_NUM) return 0;
-    return GPIO_ReadInputDataBit(keys[key_num].GPIOx, keys[key_num].GPIO_Pin) == Bit_SET;
+    return BSP_GPIO_Read(keys[key_num].GPIOx, keys[key_num].GPIO_Pin);
 }
 
 /* 轮询按键并执行按下、消抖、释放三态检测。 */

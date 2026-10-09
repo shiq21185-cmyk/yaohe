@@ -1,38 +1,29 @@
 #include "stm32f10x.h"                  // Device header
+#include "bsp_gpio.h"
 
+/* 板载 LED：PA0，低电平点亮。
+ * GPIO 的时钟与配置全部交给 BSP 层，这里只保留语义。 */
+#define LED0_PORT   GPIOA
+#define LED0_PIN    GPIO_Pin_0
 
-void LED_Init(void){
-	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA,ENABLE);
-
-	GPIO_InitTypeDef GPIO_InStructure;
-	GPIO_InStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-	GPIO_InStructure.GPIO_Pin = GPIO_Pin_0;
-	GPIO_InStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_Init(GPIOA,&GPIO_InStructure);
+void LED_Init(void)
+{
+	BSP_GPIO_ConfigOutPP(LED0_PORT, LED0_PIN);
 	/* PA0 为低电平点亮，初始化时默认熄灭。 */
-	GPIO_SetBits(GPIOA,GPIO_Pin_0);
-
+	BSP_GPIO_Set(LED0_PORT, LED0_PIN);
 }
-
 
 void LED0_ON(void)
 {
-	GPIO_ResetBits(GPIOA,GPIO_Pin_0);
+	BSP_GPIO_Reset(LED0_PORT, LED0_PIN);
 }
+
 void LED0_OFF(void)
 {
-	GPIO_SetBits(GPIOA,GPIO_Pin_0);
+	BSP_GPIO_Set(LED0_PORT, LED0_PIN);
 }
+
 void LED0_Turn(void)
 {
-	if(GPIO_ReadOutputDataBit(GPIOA, GPIO_Pin_0) == Bit_SET)
-	{
-		GPIO_ResetBits(GPIOA, GPIO_Pin_0);
-	}
-	else
-	{
-		GPIO_SetBits(GPIOA, GPIO_Pin_0);
-	}
+	BSP_GPIO_Toggle(LED0_PORT, LED0_PIN);
 }
-
-

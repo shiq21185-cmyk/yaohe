@@ -48,7 +48,10 @@
 .\objects\hc06.o: .\Hardware\OLED.h
 .\objects\hc06.o: .\Hardware\hx711.h
 .\objects\hc06.o: D:\Keil5 stm32\ARM\ARMCC\Bin\..\include\stdlib.h
+.\objects\hc06.o: .\BSP\bsp_gpio.h
 .\objects\hc06.o: .\Hardware\dht11.h
 .\objects\hc06.o: .\Hardware\esp8266.h
 .\objects\hc06.o: .\Hardware\xrvoice.h
 .\objects\hc06.o: .\Hardware\key.h
+.\objects\hc06.o: .\BSP\bsp_uart.h
+.\objects\hc06.o: .\BSP\bsp_flash.h

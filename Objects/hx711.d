@@ -30,4 +30,5 @@
 .\objects\hx711.o: .\Library\misc.h
 .\objects\hx711.o: Hardware\hx711.h
 .\objects\hx711.o: D:\Keil5 stm32\ARM\ARMCC\Bin\..\include\stdlib.h
+.\objects\hx711.o: .\BSP\bsp_gpio.h
 .\objects\hx711.o: .\Systerm\Delay.h
