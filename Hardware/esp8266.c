@@ -25,6 +25,16 @@
 unsigned char esp8266_buf[1280];
 unsigned short esp8266_cnt = 0, esp8266_cntPre = 0;
 
+/* AT 命令组装的公用缓冲。
+ * 原先 ESP_ConnectMQTT() 和 ESP_MQTTPublish() 各自在栈上开 char cmd[256]，
+ * 把这两个函数的栈帧顶到 264 / 280 字节，进而逼着 main 的主栈(MSP)和
+ * Upload_Task 的任务栈都按这个最坏情况预留空间。
+ * 两者不会并发——ESP_ConnectMQTT() 只在 main() 里、调度器启动之前调用，
+ * ESP_MQTTPublish() 只在 Upload_Task 里调用——所以合并成一个静态缓冲。
+ * 代价是 .bss 多 256 字节，换来主栈和 Upload_Task 栈各可少留 512 字节。 */
+#define ESP_CMD_BUF_SIZE 256
+static char esp_cmd_buf[ESP_CMD_BUF_SIZE];
+
 
 
 void ESP8266_Clear(void)
@@ -166,8 +176,8 @@ void ESP8266_Init(void)
 // 连接MQTT服务器
 void ESP_ConnectMQTT(void)
 {
-    // 配置MQTT客户端信息
-    char cmd[256];
+    // 配置MQTT客户端信息（缓冲改用文件级静态数组，不再占用本函数栈帧）
+    char *cmd = esp_cmd_buf;
     sprintf(cmd, "AT+MQTTUSERCFG=0,1,\"%s\",\"%s\",\"%s\",0,0,\"\"\r\n",MQTT_CLIENT_ID, MQTT_USER, MQTT_PWD);
     ESP8266_Clear();
 
@@ -184,7 +194,7 @@ void ESP_ConnectMQTT(void)
 // 发布MQTT消息
 void ESP_MQTTPublish(uint8_t *topic, uint8_t *data)
 {
-    char cmd[256];
+    char *cmd = esp_cmd_buf;
     uint8_t retry_count = 0;
 
     // 构建发布命令

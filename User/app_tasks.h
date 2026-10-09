@@ -38,18 +38,45 @@ typedef enum {
 } Servo_Command_t;
 
 // ==================== 任务栈深（单位：字，1字=4字节） ====================
-// 取值依据见 app_tasks.c 中「应用任务的静态内存」注释：
-// 由 armlink --callgraph 的静态最大调用深度 + 64B Cortex-M3 上下文帧，
-// 再留约 2 倍余量得出。
-#define HX711_TASK_STACK_WORDS        128   /* 2048 ->  512 B */
-#define DISPLAY_TASK_STACK_WORDS      192   /* 2048 ->  768 B */
-#define DHT11_TASK_STACK_WORDS        128   /* 2048 ->  512 B */
-#define UPLOAD_TASK_STACK_WORDS       256   /* 1024 -> 1024 B */
-#define KEY_TASK_STACK_WORDS          128   /* 1024 ->  512 B */
-#define TIME_TASK_STACK_WORDS         128   /* 2048 ->  512 B */
-#define SERVO_TASK_STACK_WORDS         96   /* 1024 ->  384 B */
-#define VOICE_TASK_STACK_WORDS        128   /* 1024 ->  512 B */
-#define APPTASKCREATE_STACK_WORDS     128   /* 1024 ->  512 B */
+// 取值依据是 armlink --callgraph 生成的静态调用图（Objects/Poject.htm）
+// 里各任务函数的 "Max Depth"，加上 Cortex-M3 每次任务切换固定占用的
+// 64 字节上下文帧（8字异常帧 + 8字 r4-r11），再留约 1.5~1.8 倍余量。
+//
+// 两个必须记住的坑：
+//  1) 调用图给 printf 系列标的是 "Unknown Stack Size"，走函数指针的浮点
+//     格式化（_printf_fp_dec_real 自身 104B、整条链 324B）不会被计入调用者
+//     的 Max Depth。本工程只有 ProcessUploadQueue() 用了 "%.1f"（见
+//     app_tasks.c 里几处 sprintf），所以只有 Upload_Task 要额外为它留空间，
+//     这里直接给 512B。
+//  2) ESP_ConnectMQTT()/ESP_MQTTPublish() 原先各自在栈上开 char cmd[256]，
+//     改成共用的文件级静态缓冲（Hardware/esp8266.c 的 esp_cmd_buf）之后，
+//     main 的最大深度从 408B 掉到 172B，Upload_Task 从 456B 掉到 208B，
+//     栈深才敢跟着往下砍。
+//
+//   任务            调用图MaxDepth  +64B帧    本次取值
+//   Upload_Task        208 B       272 B     512 B (128字，另含浮点printf余量)
+//   Display_Task       364 B       428 B     640 B (160字)
+//   Time_Task          164 B       228 B     384 B  (96字)
+//   HX711_Task         156 B       220 B     384 B  (96字)
+//   Key_Task           156 B       220 B     384 B  (96字)
+//   DHT11_Task         148 B       212 B     384 B  (96字)
+//   Voice_Task         148 B       212 B     384 B  (96字)
+//   AppTaskCreate      132 B       196 B     384 B  (96字)
+//   Servo_Task         100 B       164 B     256 B  (64字)
+//   空闲任务           100 B       164 B     256 B (见 configMINIMAL_STACK_SIZE)
+//
+// 上板后 vApplicationIdleHook() 会在启动 31 秒时通过串口打印各任务的实际
+// 剩余栈水位（[STACK-WATERMARK] free bytes per task:），如果某个任务 free
+// 值很小（比如不足 64 字节）就把它对应的宏调大。
+#define HX711_TASK_STACK_WORDS         96   /* 2048 ->  384 B */
+#define DISPLAY_TASK_STACK_WORDS      160   /* 2048 ->  640 B */
+#define DHT11_TASK_STACK_WORDS         96   /* 2048 ->  384 B */
+#define UPLOAD_TASK_STACK_WORDS       128   /* 1024 ->  512 B */
+#define KEY_TASK_STACK_WORDS           96   /* 1024 ->  384 B */
+#define TIME_TASK_STACK_WORDS          96   /* 2048 ->  384 B */
+#define SERVO_TASK_STACK_WORDS         64   /* 1024 ->  256 B */
+#define VOICE_TASK_STACK_WORDS         96   /* 1024 ->  384 B */
+#define APPTASKCREATE_STACK_WORDS      96   /* 1024 ->  384 B */
 
 // 外部变量
 extern volatile uint8_t g_servo_cmd;           // 当前舵机命令
@@ -93,9 +120,11 @@ extern volatile uint8_t g_edit_field;     // 0=小时, 1=分钟
 extern volatile uint8_t g_volume;         // 当前音量 1-5
 
 extern StackType_t Idle_Task_Stack[configMINIMAL_STACK_SIZE];
-extern StackType_t Timer_Task_Stack[configTIMER_TASK_STACK_DEPTH];
 extern StaticTask_t Idle_Task_TCB;
+#if ( configUSE_TIMERS == 1 )
+extern StackType_t Timer_Task_Stack[configTIMER_TASK_STACK_DEPTH];
 extern StaticTask_t Timer_Task_TCB;
+#endif
 
 // 任务创建任务自身的静态内存（在 main.c 里用 xTaskCreateStatic 创建）
 extern StackType_t AppTaskCreate_Stack[];

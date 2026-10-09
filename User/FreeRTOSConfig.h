@@ -10,25 +10,41 @@
 #define configCPU_CLOCK_HZ          ( ( unsigned long ) 72000000 )
 #define configTICK_RATE_HZ          ( ( TickType_t ) 1000 )
 #define configMAX_PRIORITIES        ( 5 )
-#define configMINIMAL_STACK_SIZE    ( ( unsigned short ) 128 )
-/* 堆只服务 xSemaphoreCreateMutex()/xSemaphoreCreateBinary() 这几个内核对象，
- * 任务栈与TCB已全部改为静态分配，不再从这里出。1KB 足够并留有余量。 */
-#define configTOTAL_HEAP_SIZE       ( ( size_t ) ( 1*1024 ) )
+/* 空闲任务栈：128 字(512B) -> 64 字(256B)。
+ * prvIdleTask 的静态最大深度只有 100 字节，空闲钩子 vApplicationIdleHook()
+ * 里只调用 BSP_Log_* 这套纯寄存器级输出（不走 printf/sprintf，最大局部
+ * 缓冲是 BSP_Log_Dec 的 11 字节），所以 256B 足够。 */
+#define configMINIMAL_STACK_SIZE    ( ( unsigned short ) 64 )
+/* 内核堆已经没有任何分配者：任务栈/TCB 走静态分配，
+ * 三个信号量（xOLEDMutex / xTimeMutex / xVoiceSemaphore）也都改成了
+ * Static 版本，软件定时器已关闭。这里只留 128 字节兜底：
+ * heap_4 的 prvHeapInit() 需要一个能放下块头(8B)加一个空闲块的极小空间，
+ * 万一将来有代码偷偷调用 pvPortMalloc，vApplicationMallocFailedHook()
+ * 会在串口打印 [MALLOC-FAILED] 而不是悄悄跑飞。 */
+#define configTOTAL_HEAP_SIZE       ( ( size_t ) 128 )
 #define configMAX_TASK_NAME_LEN     ( 16 )
 #define configUSE_TRACE_FACILITY    0
 #define configUSE_16_BIT_TICKS      0
 #define configIDLE_SHOULD_YIELD     1
 
-/* 静态内存、软件定时器与同步对象配置。 */
+/* 静态内存、同步对象配置。
+ * 本工程没有用到任何软件定时器（全文搜不到 xTimerCreate/xTimerStart），
+ * 关掉 configUSE_TIMERS 可以整整省下定时器任务的栈、TCB、定时器队列和
+ * 两条定时器链表，约 800 字节 RAM；timers.c 会被整体编译为空。 */
 #define configSUPPORT_STATIC_ALLOCATION 1
-#define configUSE_TIMERS                1
+#define configUSE_TIMERS                0
+#if ( configUSE_TIMERS == 1 )
 #define configTIMER_TASK_PRIORITY       2
 #define configTIMER_QUEUE_LENGTH        5
 #define configTIMER_TASK_STACK_DEPTH    configMINIMAL_STACK_SIZE
+#endif
 #define configUSE_MUTEXES               1
-#define configUSE_RECURSIVE_MUTEXES     1
-#define configUSE_COUNTING_SEMAPHORES   1
-#define configQUEUE_REGISTRY_SIZE       8
+/* 递归互斥量与计数信号量都没有被使用（只有互斥量和二值信号量），
+ * 关掉可减小内核代码体积。 */
+#define configUSE_RECURSIVE_MUTEXES     0
+#define configUSE_COUNTING_SEMAPHORES   0
+/* 队列注册表（vQueueAddToRegistry）没有被使用，置 0 省下 64 字节数组。 */
+#define configQUEUE_REGISTRY_SIZE       0
 
 /* 栈溢出检测与断言。
  * 方法2：切换上下文时校验栈末尾 20 字节仍为 0xA5 填充值，能抓到最危险的

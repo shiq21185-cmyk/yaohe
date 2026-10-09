@@ -30,7 +30,12 @@
 ;   <o> Stack Size (in Bytes) <0x0-0xFFFFFFFF:8>
 ; </h>
 
-Stack_Size      EQU     0x00000400
+; 主栈(MSP) 1024 -> 768 字节。
+; 调度器启动前 main() 的静态最大深度只有 172 字节（把 ESP_ConnectMQTT 里
+; 那个 char cmd[256] 改成静态缓冲之后，从 408B 降下来的，见 esp8266.c）；
+; 调度器启动后 MSP 只服务中断，而本工程的 ISR 都是"收字节进缓冲"级别的
+; 短函数，没有 printf/sprintf。768 字节留了充足余量。
+Stack_Size      EQU     0x00000300
 
                 AREA    STACK, NOINIT, READWRITE, ALIGN=3
 Stack_Mem       SPACE   Stack_Size
@@ -40,8 +45,14 @@ __initial_sp
 ; <h> Heap Configuration
 ;   <o>  Heap Size (in Bytes) <0x0-0xFFFFFFFF:8>
 ; </h>
+;
+; 本工程不使用 C 库的堆：链接映射文件里除启动文件自身（__user_initial_stackheap
+; 取 Heap_Mem 地址）之外，没有任何目标文件引用 malloc/calloc/realloc/free。
+; 动态内存一律走 FreeRTOS 的 heap_4（ucHeap，见 FreeRTOSConfig.h），
+; 所以这里把 C 库堆清零，收回 512 字节 RAM。
+; 若将来确有地方要调用 malloc，请先把 Heap_Size 改回需要的字节数。
 
-Heap_Size       EQU     0x00000200
+Heap_Size       EQU     0x00000000
 
                 AREA    HEAP, NOINIT, READWRITE, ALIGN=3
 __heap_base

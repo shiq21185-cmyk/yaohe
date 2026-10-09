@@ -170,7 +170,9 @@ void XRVoice_Init(VoiceCommandCallback_t callback)
 {
     if(xVoiceSemaphore == NULL)
     {
-        xVoiceSemaphore = xSemaphoreCreateBinary();
+        /* 静态创建，不占用 FreeRTOS 堆（堆已缩到最小值，只留兜底空间） */
+        static StaticSemaphore_t xVoiceSemaphoreBuffer;
+        xVoiceSemaphore = xSemaphoreCreateBinaryStatic(&xVoiceSemaphoreBuffer);
     }
 
     voice_callback = callback;

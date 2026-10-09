@@ -24,6 +24,12 @@
 /* 外部时间互斥量 */
 extern SemaphoreHandle_t xTimeMutex;
 
+/* 两个互斥量改为静态创建：这样内核堆(ucHeap)里就再没有任何分配者，
+ * configTOTAL_HEAP_SIZE 可以从 1KB 缩到 128B 的兜底值。
+ * 代价是 .bss 多出两个 StaticSemaphore_t（各约 80 字节）。 */
+static StaticSemaphore_t xOLEDMutexBuffer;
+static StaticSemaphore_t xTimeMutexBuffer;
+
 int main(void)
 {
     BaseType_t xReturn = pdPASS;
@@ -39,7 +45,7 @@ int main(void)
      * 之后 USART1_Init() 再接管为 HC-06 正常收发。 */
     BSP_Log_Init();
     BSP_Log_Puts("\r\n\r\n=== MEDBOX BSP BOOT ===\r\n");
-    BSP_Log_Puts("build: BSP static-tasks heap-1K RAM-under-12K\r\n");
+    BSP_Log_Puts("build: BSP static-tasks heap-128B stacks-trimmed\r\n");
 
     /* 内存自检：确认 0x20004C00-0x2000C000 可读写、无混叠。
      * 放在 RTOS 堆与任务创建之前，此时该区间无人使用，可以安全破坏。 */
@@ -56,7 +62,7 @@ int main(void)
 
     /* OLED互斥量 */
     extern SemaphoreHandle_t xOLEDMutex;
-    xOLEDMutex = xSemaphoreCreateMutex();
+    xOLEDMutex = xSemaphoreCreateMutexStatic(&xOLEDMutexBuffer);
     if(xOLEDMutex == NULL)
     {
         OLED_ShowString(1, 1, "Mutex Fail");
@@ -64,7 +70,7 @@ int main(void)
     }
 
     /* 时间互斥量 */
-    xTimeMutex = xSemaphoreCreateMutex();
+    xTimeMutex = xSemaphoreCreateMutexStatic(&xTimeMutexBuffer);
     if(xTimeMutex == NULL)
     {
         OLED_ShowString(1, 1, "TimeMutex Fail");

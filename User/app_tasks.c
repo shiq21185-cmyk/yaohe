@@ -145,36 +145,29 @@ volatile uint8_t g_volume = 1;                    // 当前音量 1-5
 // ==================== RTOS对象 ====================
 SemaphoreHandle_t xTimeMutex = NULL;
 
-// ---- 空闲任务/定时器任务的静态内存（FreeRTOS回调直接返回给内核） ----
+// ---- 空闲任务的静态内存（FreeRTOS回调直接返回给内核） ----
 StackType_t Idle_Task_Stack[configMINIMAL_STACK_SIZE];
-StackType_t Timer_Task_Stack[configTIMER_TASK_STACK_DEPTH];
 StaticTask_t Idle_Task_TCB;
+
+#if ( configUSE_TIMERS == 1 )
+// 只有启用软件定时器时才需要。本工程 configUSE_TIMERS == 0，
+// 下面两块不参与编译，省下约 600 字节 RAM。
+StackType_t Timer_Task_Stack[configTIMER_TASK_STACK_DEPTH];
 StaticTask_t Timer_Task_TCB;
+#endif
 
 // ==================== 应用任务的静态内存 ====================
 // 全部任务改用 xTaskCreateStatic，堆(ucHeap)不再为任务栈和TCB买单。
 //
-// 栈深取值依据：armlink --callgraph 生成的静态调用图（Objects/Poject.htm
-// 中的 "Maximum Stack Usage" / 各函数的 Max Depth），再叠加 FreeRTOS 在
-// Cortex-M3 上每次任务切换固定占用的 64 字节上下文保存帧（8字异常帧 +
-// 8字 r4-r11），最后留约 2 倍余量。
+// 各任务的栈深常量（XXX_TASK_STACK_WORDS）统一定义在 app_tasks.h，
+// 那里写了完整的取值依据、调用图实测深度对照表，以及两个必须注意的坑
+// （printf 系列的 "Unknown Stack Size"、以及 esp_cmd_buf 静态化之后
+// main/Upload_Task 深度大幅下降这件事）。改栈深请改 app_tasks.h。
 //
-//   任务          静态最大深度   需求(深度+64)   留2倍后取值
-//   HX711_Task        144 B        208 B         512 B (128 字)
-//   Display_Task      352 B        416 B         768 B (192 字)
-//   DHT11_Task        136 B        200 B         512 B (128 字)
-//   Upload_Task       456 B        520 B        1024 B (256 字)
-//   Key_Task          144 B        208 B         512 B (128 字)
-//   Time_Task         152 B        216 B         512 B (128 字)
-//   Servo_Task         80 B        144 B         384 B  (96 字)
-//   Voice_Task        128 B        192 B         512 B (128 字)
-//   AppTaskCreate     152 B        216 B         512 B (128 字)
-//
-// 注意：静态调用图无法覆盖函数指针调用与部分库函数（printf 系列会标注
-// "Unknown Stack Size"）。因此 configCHECK_FOR_STACK_OVERFLOW 已设为 2，
-// 一旦溢出会通过串口打印任务名并停机，而不是静默跑飞。
-// 上板后可用 StackWatermarkReport() 实测各任务水位，再决定是否继续收紧。
-// （各任务的栈深常量定义在 app_tasks.h，main.c 创建任务创建任务时也要用。）
+// configCHECK_FOR_STACK_OVERFLOW 已设为 2：一旦某任务真的溢出，会通过
+// 串口打印 [STACK-OVERFLOW] task=<名> 并停机，而不是静默跑飞。
+// 上板后 vApplicationIdleHook() 会在启动 31 秒时打印各任务剩余栈水位
+// （[STACK-WATERMARK] free bytes per task:），据此再决定是否继续收紧。
 
 StackType_t   AppTaskCreate_Stack[APPTASKCREATE_STACK_WORDS];
 StaticTask_t  AppTaskCreate_TCB;
@@ -226,7 +219,8 @@ void vApplicationGetIdleTaskMemory(StaticTask_t **ppxIdleTaskTCBBuffer,
     *pulIdleTaskStackSize = configMINIMAL_STACK_SIZE;
 }
 
-// 设置定时器任务的内存
+#if ( configUSE_TIMERS == 1 )
+// 设置定时器任务的内存（本工程未启用软件定时器，此函数不会被内核调用）
 void vApplicationGetTimerTaskMemory(StaticTask_t **ppxTimerTaskTCBBuffer,
                                     StackType_t **ppxTimerTaskStackBuffer,
                                     uint32_t *pulIdleTaskStackSize)
@@ -235,6 +229,7 @@ void vApplicationGetTimerTaskMemory(StaticTask_t **ppxTimerTaskTCBBuffer,
     *ppxTimerTaskStackBuffer = Timer_Task_Stack;
     *pulIdleTaskStackSize = configTIMER_TASK_STACK_DEPTH;
 }
+#endif
 
 // ==================================================
 // 上传数据相关函数
