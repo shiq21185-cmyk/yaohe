@@ -156,7 +156,7 @@
 - **传感器驱动整理**：补充并统一 HX711、DHT11、按键与定时器模块的中文说明。
 - **项目文档完善**：新增实际 GPIO 接线表、Flash 保存说明及 Keil 编译烧录流程。
 
-## 📅 2026.07 内存优化与 BSP 分层重构
+## 📅 2026.10 内存优化与 BSP 分层重构
 
 - **新增 BSP 分层**：新建 `BSP/` 目录，把 GPIO、串口、软件 I²C、舵机 PWM、时基（TIM4）、Flash 的寄存器与时钟操作全部收敛进来，驱动层只调用语义 API（如 `BSP_UART_Send()`、`BSP_SoftI2C_WriteFrame()`、`BSP_Flash_WriteAlarms()`），所有新文件都已登记进 `Poject.uvprojx`。
 - **中断服务只收字节**：`USART1/2/3_IRQHandler` 统一精简为一行 `BSP_UART_IsrFetch()`，中断里只把收到的字节交回驱动或环形缓冲，解析与组帧全部移到任务上下文执行。
