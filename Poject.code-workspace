@@ -5,5 +5,8 @@
         }
     ],
     "settings": {},
-    "extensions": {}
+	"extensions": {},
+	"trae": {
+		"workspaceId": "96c32babde771b9f99f4bca3b960579f"
+	}
 }
