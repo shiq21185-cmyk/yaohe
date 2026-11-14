@@ -18,9 +18,9 @@
 #define HX711_DOUT_READ() BSP_GPIO_Read(HX711_DOUT_PORT, HX711_DOUT_PIN)
 
 void Init_HX711pin(void);
-u32 HX711_Read(void);
-void Get_Maopi(void);
-void Get_Weight(void);
+uint8_t HX711_Read(u32 *value);
+uint8_t Get_Maopi(void);
+uint8_t Get_Weight(void);
 
 extern u32 HX711_Buffer;
 extern u32 Weight_Maopi;

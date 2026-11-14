@@ -37,8 +37,7 @@ int main(void)
     /* 开启子异常分类与除零陷阱：必须在任何外设初始化之前调用 */
     cm_backtrace_init();
 
-    /* 日志口先于一切初始化：只配 PA9，不注册中断，
-     * 之后 USART1_Init() 再接管为 HC-06 正常收发。 */
+    /* 日志默认关闭，USART1/PA9 留给 HC-06；此调用在默认配置下为空操作。 */
     BSP_Log_Init();
     BSP_Log_Puts("\r\n\r\n=== MEDBOX BSP BOOT ===\r\n");
     BSP_Log_Puts("build: BSP + dynamic tasks, heap 16KB, timers off\r\n");
@@ -90,8 +89,7 @@ int main(void)
     Init_HX711pin();
 
     OLED_ShowString(2, 1, "Tare...        ");
-    Get_Maopi();
-    tare_done = 1;
+    tare_done = 0; /* HX711 皮重采样移入任务，主程序不再被传感器阻塞 */
 
     OLED_Clear();
     OLED_ShowString(1, 1, "T:");
@@ -99,8 +97,6 @@ int main(void)
     OLED_ShowString(3, 1, "W:");
 
     ReadDHT11Data();
-    Get_Weight();
-    weight = Weight_Shiwu;
     UpdateDisplay();
 
     /* Scheduler acceptance is reported only after dynamic task creation succeeds. */

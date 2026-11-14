@@ -120,7 +120,7 @@ uint8_t dht11_last_status = 0;
 
 // ==================== 重量 ====================
 s32 weight = 0;  // 内部单位为0.1g，例如123表示12.3g
-uint8_t tare_done = 0;
+volatile uint8_t tare_done = 0;
 
 // ==================== 时间/闹钟 ====================
 volatile uint8_t current_hour = 8;
@@ -779,22 +779,40 @@ void HX711_Task(void* parameter)
 {
     TickType_t xLastWakeTime = xTaskGetTickCount();
     const TickType_t xFrequency = pdMS_TO_TICKS(200);
+    const TickType_t xTareRetryPeriod = pdMS_TO_TICKS(1000);
 
     static uint8_t was_heavy = 0;              // 曾经重过（>15g）
     static uint8_t trigger_delay = 0;          // 触发延迟计数
     static uint8_t empty_box_alarm = 0;
     static uint32_t last_play_tick = 0;        // 上次播放时间
     static s32 filtered_weight = 0;            // 一阶低通滤波缓存，整数存储
-    static uint8_t sync_counter = 0;            // 兜底同步计数器：200ms一次，强制同步一次
+    TickType_t last_sync_tick;
 
+    /* 传感器未就绪时周期性重试；不在 main 中无限等待，其他任务仍可运行。 */
+    while (!tare_done)
+    {
+        if (Get_Maopi())
+        {
+            tare_done = 1;
+            break;
+        }
+        vTaskDelayUntil(&xLastWakeTime, xTareRetryPeriod);
+    }
+
+    xLastWakeTime = xTaskGetTickCount();
+    last_sync_tick = xLastWakeTime;
     while (1)
     {
         vTaskDelayUntil(&xLastWakeTime, xFrequency);
 
-        portENTER_CRITICAL();
-        Get_Weight();
+        if (!Get_Weight())
+        {
+            /* 超时只跳过本轮，保留最近一次有效重量。 */
+            if ((TickType_t)(xTaskGetTickCount() - xLastWakeTime) >= xFrequency)
+                xLastWakeTime = xTaskGetTickCount();
+            continue;
+        }
         s32 raw_weight = Weight_Shiwu;
-        portEXIT_CRITICAL();
 
         /*
          * Get_Weight() 内部已经完成去极值平均，不能再做多次低通滤波，
@@ -808,14 +826,13 @@ void HX711_Task(void* parameter)
 
         if(tare_done)
         {
-            // ========== 兜底同步：2秒检查一次重量，不一致才上传，不浪费流量 ==========
-            sync_counter++;
-            if(sync_counter >= 10) { // 200ms/次 × 10次 = 2秒
-                // 只有当前重量和上次上传的重量差超过1g才触发上传，相同数据不重复传
-                if(abs(weight - last_upload_weight) >= 10) {
+            // ========== 兜底同步：按实际时钟每2秒检查一次重量 ==========
+            if ((TickType_t)(xTaskGetTickCount() - last_sync_tick) >=
+                pdMS_TO_TICKS(2000UL))
+            {
+                last_sync_tick = xTaskGetTickCount();
+                if (abs(weight - last_upload_weight) >= 10)
                     g_upload_trigger_weight = 1;
-                }
-                sync_counter = 0;
             }
             // ========== 状态机：检测重量变化 ==========
 			CheckAndTriggerUpload_Weight(); // 检查重量是否需要上传
@@ -900,6 +917,11 @@ void HX711_Task(void* parameter)
     }
 }
         }
+
+        /* 六点采样可能超过 200ms；过期时重置节拍，避免 vTaskDelayUntil
+         * 连续补跑导致重量任务背靠背占用处理器。 */
+        if ((TickType_t)(xTaskGetTickCount() - xLastWakeTime) >= xFrequency)
+            xLastWakeTime = xTaskGetTickCount();
     }
 }
 

@@ -1,6 +1,8 @@
 #include "stm32f10x.h"
 #include "hx711.h"
 #include "Delay.h"
+#include "FreeRTOS.h"
+#include "task.h"
 
 u32 HX711_Buffer;
 u32 Weight_Maopi;
@@ -9,6 +11,7 @@ u8 Flag_Error = 0;
 
 /* 标定系数：每克对应的 HX711 原始计数差。 */
 #define GapValue 550
+#define HX711_READY_TIMEOUT_MS 150U
 
 /* 初始化 HX711：PB14 输出时钟，PB15 上拉输入数据。 */
 void Init_HX711pin(void)
@@ -18,61 +21,92 @@ void Init_HX711pin(void)
     HX711_SCK_HIGH();
 }
 
-/* 读取 HX711 的 24 位有符号原始数据，并完成符号位转换。 */
-u32 HX711_Read(void)
+/* 读取 HX711 的 24 位原始数据。等待转换就绪有超时，避免传感器掉线时
+ * 永久占住任务；SCK 脉冲期间短暂屏蔽中断，防止被调度打断后高电平过长。 */
+uint8_t HX711_Read(u32 *value)
 {
-    unsigned long count;
+    unsigned long count = 0;
     unsigned char i;
+    TickType_t start_tick;
+    TickType_t next_poll_tick;
+    TickType_t timeout_ticks = pdMS_TO_TICKS(HX711_READY_TIMEOUT_MS);
 
-    Delay_us(1);
+    if (value == 0) { return 0; }
+    if (timeout_ticks == 0) { timeout_ticks = 1; }
+
     HX711_SCK_LOW();
-    count = 0;
-    while(HX711_DOUT_READ() == 1);
-
-    for(i = 0; i < 24; i++)
+    start_tick = xTaskGetTickCount();
+    next_poll_tick = start_tick;
+    while (HX711_DOUT_READ() != 0)
     {
+        if ((TickType_t)(xTaskGetTickCount() - start_tick) >= timeout_ticks)
+        {
+            Flag_Error = 1;
+            return 0;
+        }
+        /* Poll at a fixed one-tick cadence while the converter is working. */
+        vTaskDelayUntil(&next_poll_tick, 1);
+    }
+
+    for (i = 0; i < 24; i++)
+    {
+        uint32_t irq_state = __get_PRIMASK();
+        __disable_irq();
         HX711_SCK_HIGH();
         count <<= 1;
         Delay_us(1);
         HX711_SCK_LOW();
-        if(HX711_DOUT_READ() == 1)
-            count++;
+        if (HX711_DOUT_READ() != 0) { count++; }
         Delay_us(1);
+        if (irq_state == 0) { __enable_irq(); }
     }
-    HX711_SCK_HIGH();
-    count ^= 0x800000;
-    Delay_us(1);
-    HX711_SCK_LOW();
-    return count;
+
+    {
+        uint32_t irq_state = __get_PRIMASK();
+        __disable_irq();
+        HX711_SCK_HIGH();
+        Delay_us(1);
+        HX711_SCK_LOW();
+        if (irq_state == 0) { __enable_irq(); }
+    }
+
+    count ^= 0x800000UL;
+    *value = (u32)count;
+    HX711_Buffer = *value;
+    Flag_Error = 0;
+    return 1;
 }
 
-/* 连续采样五次，取平均值作为空载去皮基准。 */
-void Get_Maopi(void)
+/* 连续采样五次，任何一次超时都不覆盖上一次有效皮重。 */
+uint8_t Get_Maopi(void)
 {
     u32 sum = 0;
+    u32 sample;
     u8 i;
 
-    for(i = 0; i < 5; i++)
+    for (i = 0; i < 5; i++)
     {
-        sum += HX711_Read();
+        if (!HX711_Read(&sample)) { return 0; }
+        sum += sample;
         Delay_ms(10);
     }
     Weight_Maopi = sum / 5;
+    return 1;
 }
 
 /* 采用去极值平均、范围校验和稳定判定计算重量，单位为 0.1 g。 */
-void Get_Weight(void)
+uint8_t Get_Weight(void)
 {
-    s32 samples[16];
+    s32 samples[6];
     s32 sum = 0;
     u8 i;
     s32 diff;
     static s32 last_stable_weight = 0;
     static u8 stable_count = 0;
 
-    for(i = 0; i < 6; i++)
+    for (i = 0; i < 6; i++)
     {
-        HX711_Buffer = HX711_Read();
+        if (!HX711_Read(&HX711_Buffer)) { return 0; }
         samples[i] = (s32)HX711_Buffer - (s32)Weight_Maopi;
     }
 
@@ -86,8 +120,8 @@ void Get_Weight(void)
     diff = (sum - max - min) / 4;
 
     /* 丢弃明显异常的 ADC 读数。 */
-    if(diff < -2000 || diff > (s32)(GapValue * 5000))
-        return;
+    if (diff < -2000 || diff > (s32)(GapValue * 5000))
+        return 0;
 
     s32 weight_temp = 0;
     if(diff > 0)
@@ -96,8 +130,8 @@ void Get_Weight(void)
     /* 小于 1.0 g 的变化按零处理，降低空载抖动。 */
     if(weight_temp < 10)
         weight_temp = 0;
-    if(weight_temp > 50000)
-        return;
+    if (weight_temp > 50000)
+        return 0;
 
     s32 weight_diff = abs(weight_temp - last_stable_weight);
     if(weight_diff > 1)
@@ -120,4 +154,6 @@ void Get_Weight(void)
         stable_count = 0;
         last_stable_weight = weight_temp;
     }
+
+    return 1;
 }

@@ -1,4 +1,10 @@
 #include "bsp_log.h"
+
+#ifndef BSP_LOG_ENABLE
+#define BSP_LOG_ENABLE 0
+#endif
+
+#if BSP_LOG_ENABLE
 #include "bsp_gpio.h"
 
 /* ------------------------------------------------------------------ *
@@ -65,3 +71,12 @@ void BSP_Log_ShowAddr(uint32_t v)
     BSP_Log_Putc('x');
     BSP_Log_Hex(v, 8);
 }
+
+#else
+/* Normal firmware reserves USART1 (PA9/PA10) for the HC-06 module. */
+void BSP_Log_Init(void) {}
+void BSP_Log_Puts(const char *s) { (void)s; }
+void BSP_Log_Dec(uint32_t v) { (void)v; }
+void BSP_Log_Hex(uint32_t v, uint8_t digits) { (void)v; (void)digits; }
+void BSP_Log_ShowAddr(uint32_t v) { (void)v; }
+#endif
