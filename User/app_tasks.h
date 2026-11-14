@@ -40,7 +40,7 @@ typedef enum {
 // ==================== 任务栈深（单位：字，1字=4字节） ====================
 // 这里恢复成工程原本的取值（也就是 FreeRTOS 里最常见的 512/256 字），
 // 不再按调用图逐个抠。任务走 xTaskCreate() 动态创建，
-// 栈和 TCB 都从 configTOTAL_HEAP_SIZE(20KB) 里分配。
+// 栈和 TCB 都从 configTOTAL_HEAP_SIZE(16KB) 里分配。
 //
 // 参考：armlink --callgraph 生成的静态调用图（Objects/Poject.htm）实测的
 // Max Depth（已含 Cortex-M3 每次切换固定占用的 64 字节上下文帧）——
@@ -108,7 +108,7 @@ extern volatile uint8_t g_edit_mode;      // 当前编辑模式
 extern volatile uint8_t g_edit_field;     // 0=小时, 1=分钟
 extern volatile uint8_t g_volume;         // 当前音量 1-5
 
-// 任务句柄（栈与 TCB 由内核从 20KB 堆里动态分配，这里不再有静态缓冲的 extern）
+// 任务句柄（栈与 TCB 由内核从 16KB 堆里动态分配，这里不再有静态缓冲的 extern）
 extern TaskHandle_t AppTaskCreate_Handle;
 extern TaskHandle_t HX711_Task_Handle;
 extern TaskHandle_t DHT11_Task_Handle;

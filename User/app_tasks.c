@@ -172,7 +172,7 @@ TaskHandle_t Voice_Task_Handle = NULL;
 
 // ==================== 宏定义 ====================
 #define SYNC_VALID_DURATION_MS  0xFFFFFFFF   //蓝牙同步永久有效，断开蓝牙时间不会重置
-#define TIME_TASK_DELAY_MS    245     // Time_Task执行周期（毫秒），等于1秒。
+#define TIME_TASK_DELAY_MS    370     // Time_Task中蓝牙轮询分片总周期（ms）
 #define TEMP_UPLOAD_THRESHOLD   0.2f
 #define HUMID_UPLOAD_THRESHOLD  1.0f
 #define UPLOAD_MIN_INTERVAL     500
@@ -673,6 +673,8 @@ void AppTaskCreate(void)
         while (1) { }
     }
 
+    /* Emit the acceptance token only after all eight application tasks were created. */
+    BSP_Log_Puts("[ALL TESTS PASSED]\r\n");
     vTaskDelete(AppTaskCreate_Handle);
     taskEXIT_CRITICAL();
 }
@@ -732,6 +734,9 @@ void StackWatermarkReport(void)
         BSP_Log_Dec((uint32_t)uxTaskGetStackHighWaterMark(*(tasks[i].handle)) * 4u);
         BSP_Log_Puts("B\r\n");
     }
+    BSP_Log_Puts("  IdleTask free=");
+    BSP_Log_Dec((uint32_t)uxTaskGetStackHighWaterMark(xTaskGetIdleTaskHandle()) * 4u);
+    BSP_Log_Puts("B\r\n");
 }
 
 // 空闲钩子：只用来在系统跑稳后打印一次栈水位。
@@ -760,7 +765,7 @@ void vApplicationIdleHook(void)
             BSP_Log_Dec((uint32_t)xPortGetFreeHeapSize());
             BSP_Log_Puts("B min-ever-free=");
             BSP_Log_Dec((uint32_t)xPortGetMinimumEverFreeHeapSize());
-            BSP_Log_Puts("B total=20480B\r\n");
+            BSP_Log_Puts("B total=16384B\r\n");
         }
     }
 }
@@ -878,7 +883,7 @@ void HX711_Task(void* parameter)
     LED0_Turn();
 
     // 每5秒重复提醒一次
-    if((xTaskGetTickCount() - last_play_tick) >= pdMS_TO_TICKS(5*TIME_TASK_DELAY_MS))
+    if((xTaskGetTickCount() - last_play_tick) >= pdMS_TO_TICKS(5000UL))
     {
         // 代码驱动播放空盒报警响应
         XRVoice_PlayRaw(0x09, 0x00);
@@ -909,6 +914,9 @@ static void Voice_Command_Callback(uint8_t cmd_type, uint8_t cmd_id);
 
 void Voice_Task(void* parameter)
 {
+    TickType_t xLastWakeTime;
+    const TickType_t xPollPeriod = pdMS_TO_TICKS(10);
+
     XRVoice_Init(Voice_Command_Callback);
     XRVoice_SetVolume(g_volume); // 初始化设置音量
 
@@ -922,12 +930,13 @@ void Voice_Task(void* parameter)
         welcome_played = 1;
     }
 
+    xLastWakeTime = xTaskGetTickCount();
     while (1)
     {
         /* USART3 中断只把字节推进 BSP_UART 环形缓冲，这里按 10ms 周期轮询：
          * 既完成 5 字节组帧与指令解析，也顺带跑唤醒/自环/播放去抖的超时检查。
          * 5 字节帧 @9600bps 约 5.2ms 发完，10ms 周期不会漏字节。 */
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelayUntil(&xLastWakeTime, xPollPeriod);
         XRVoice_Task();
     }
 }
@@ -1356,9 +1365,12 @@ void Display_Task(void* parameter)
 // 上传任务 - 定时处理上传队列
 void Upload_Task(void* parameter)
 {
+    TickType_t xLastWakeTime = xTaskGetTickCount();
+    const TickType_t xPeriod = pdMS_TO_TICKS(50);
+
     while (1)
     {
-        vTaskDelay(pdMS_TO_TICKS(50));
+        vTaskDelayUntil(&xLastWakeTime, xPeriod);
         ProcessUploadQueue();// 处理上传队列
     }
 }
@@ -1369,27 +1381,39 @@ void Time_Task(void* parameter)
     uint8_t alarm_triggered = 0;
     uint8_t last_alarm_index = 0;
     static uint32_t run_count = 0;
+    TickType_t xLastBluetoothPollTime;
+    TickType_t xLastSecondUpdateTick;
+    const TickType_t xBluetoothPollPeriod =
+        pdMS_TO_TICKS(TIME_TASK_DELAY_MS / 5U);
+    const TickType_t xOneSecondPeriod = pdMS_TO_TICKS(1000);
 
     // 初始化光敏传感器
     LightSenor_Init();
     g_last_light_state = LightSenor_Get();
+    xLastBluetoothPollTime = xTaskGetTickCount();
+    xLastSecondUpdateTick = xLastBluetoothPollTime;
 
     while (1)
     {
-        /* 蓝牙三字节协议是逐字节到达的，而 HC06_ProcessByte 内部有 500ms 的
-         * 帧间超时。所以把整个周期拆成 5 片，每片消费一次 UART 环形缓冲，
-         * 使最坏情况下相邻两字节的处理间隔不超过周期的 1/5（约 49ms）。 */
+        /* 蓝牙三字节协议存在帧间超时，因此将 370ms 总周期分为 5 片，每片按固定节拍轮询一次 UART 环形缓冲。 */
         {
             uint8_t bt_slice;
             for(bt_slice = 0; bt_slice < 5U; bt_slice++)
             {
-                vTaskDelay(pdMS_TO_TICKS(TIME_TASK_DELAY_MS / 5));
+                vTaskDelayUntil(&xLastBluetoothPollTime,
+                                 xBluetoothPollPeriod);
                 HC06_Poll();
+                while ((TickType_t)(xTaskGetTickCount() -
+                                      xLastSecondUpdateTick) >=
+                       xOneSecondPeriod)
+                {
+                    xLastSecondUpdateTick += xOneSecondPeriod;
+                    Update_Time();
+                }
             }
         }
 
         run_count++;
-        Update_Time();
 
         taskENTER_CRITICAL();
         g_time_task_run_count = run_count;
@@ -1525,7 +1549,7 @@ void Time_Task(void* parameter)
                 }
             }
             // 重复提醒（每5秒）
-            else if((xTaskGetTickCount() - g_last_alarm_play_tick) >= pdMS_TO_TICKS(TIME_TASK_DELAY_MS*5))
+            else if((xTaskGetTickCount() - g_last_alarm_play_tick) >= pdMS_TO_TICKS(5000UL))
             {
                 // 代码驱动重复播放相同的闹钟语音
                 XRVoice_PlayRaw(0x09, last_alarm_index);

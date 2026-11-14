@@ -12,15 +12,9 @@
 #define configMAX_PRIORITIES        ( 5 )
 /* 空闲任务栈：128 字 = 512 字节（FreeRTOS 常规取值）。 */
 #define configMINIMAL_STACK_SIZE    ( ( unsigned short ) 128 )
-/* 内核堆大小：20KB。
- * 本工程采用大众化用法——所有任务用 xTaskCreate() 动态创建，
- * 互斥量/信号量用 xSemaphoreCreateMutex() 这类动态 API，
- * 它们的栈、TCB、内核对象全部从这个堆里切出来。
- * 实际开销约 16KB（9 个任务栈按 app_tasks.h 的 512/256 字取值、
- * 加上空闲任务与定时器任务、各自的 TCB、分配块头与定时器队列），
- * 留 4KB 余量后取 20KB。芯片 SRAM 是 48KB
- * （Poject.uvprojx 的 IRAM 已配为 0xc000），装得下。 */
-#define configTOTAL_HEAP_SIZE       ( ( size_t ) ( 20 * 1024 ) )
+/* C8T6 只有 20KB SRAM；任务栈、TCB 与动态 RTOS 对象均占用此堆。
+ * 16KB 是适配当前任务栈配置的初始预算，必须结合链接图和上板堆水位复核。 */
+#define configTOTAL_HEAP_SIZE       ( ( size_t ) ( 16 * 1024 ) )
 #define configMAX_TASK_NAME_LEN     ( 16 )
 #define configUSE_TRACE_FACILITY    0
 #define configUSE_16_BIT_TICKS      0
@@ -31,7 +25,8 @@
  * xSemaphoreCreateBinary），因此关闭静态分配——这样内核自己只用堆来创建
  * 空闲任务，不需要应用再提供 vApplicationGetIdleTaskMemory() 这类回调。 */
 #define configSUPPORT_STATIC_ALLOCATION 0
-#define configUSE_TIMERS                1
+/* 应用未使用软件定时器；关闭以省去定时器服务任务和队列。 */
+#define configUSE_TIMERS                0
 #if ( configUSE_TIMERS == 1 )
 #define configTIMER_TASK_PRIORITY       2
 #define configTIMER_QUEUE_LENGTH        5
@@ -66,6 +61,7 @@ void vAssertCalled(const char *pcFile, unsigned long ulLine);
 #define INCLUDE_vTaskDelay              1
 #define INCLUDE_xTaskGetSchedulerState  1
 #define INCLUDE_uxTaskGetStackHighWaterMark 1
+#define INCLUDE_xTaskGetIdleTaskHandle 1
 
 /* Cortex-M3 异常处理函数映射与中断优先级。 */
 #define vPortSVCHandler SVC_Handler

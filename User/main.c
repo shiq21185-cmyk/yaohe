@@ -24,7 +24,7 @@
 /* 外部时间互斥量 */
 extern SemaphoreHandle_t xTimeMutex;
 
-/* 两个互斥量都用动态 API 创建，内核对象直接来自 configTOTAL_HEAP_SIZE(20KB)。 */
+/* 两个互斥量都用动态 API 创建，内核对象来自 16KB FreeRTOS 堆。 */
 
 int main(void)
 {
@@ -41,10 +41,10 @@ int main(void)
      * 之后 USART1_Init() 再接管为 HC-06 正常收发。 */
     BSP_Log_Init();
     BSP_Log_Puts("\r\n\r\n=== MEDBOX BSP BOOT ===\r\n");
-    BSP_Log_Puts("build: BSP + dynamic tasks, heap 20KB\r\n");
+    BSP_Log_Puts("build: BSP + dynamic tasks, heap 16KB, timers off\r\n");
 
-    /* 内存自检：确认 0x20004C00-0x2000C000 可读写、无混叠。
-     * 放在 RTOS 堆与任务创建之前，此时该区间无人使用，可以安全破坏。 */
+    /* 仅做栈内小范围 SRAM 写读检查。禁止扫描/破坏整个 SRAM：
+     * MSP 正在使用同一片 RAM，且 C8T6 不存在 20KB 以上的可用区。 */
     if (!BSP_SelfTest_Run())
     {
         BSP_SelfTest_Report();
@@ -103,11 +103,7 @@ int main(void)
     weight = Weight_Shiwu;
     UpdateDisplay();
 
-    /* 外设初始化全部走完后才吐通过令牌，
-     * AutoDebug 以串口是否收到该令牌判定成功。 */
-    BSP_Log_Puts("[ALL TESTS PASSED]\r\n");
-
-    /* 任务创建任务本身也走动态创建，栈与 TCB 从 20KB 堆里分配。 */
+    /* Scheduler acceptance is reported only after dynamic task creation succeeds. */
     xReturn = xTaskCreate((TaskFunction_t)AppTaskCreate, "AppTaskCreate",
                           APPTASKCREATE_STACK_WORDS, NULL, 1,
                           &AppTaskCreate_Handle);

@@ -8,6 +8,28 @@ virtualFolder:
   name: <virtual_root>
   files: []
   folders:
+    - name: BSP
+      files:
+        - path: BSP/bsp_log.c
+        - path: BSP/bsp_log.h
+        - path: BSP/bsp_selftest.c
+        - path: BSP/bsp_selftest.h
+        - path: BSP/cm_backtrace_lite.c
+        - path: BSP/cm_backtrace_lite.h
+        - path: BSP/cm_backtrace_port.c
+        - path: BSP/bsp_gpio.c
+        - path: BSP/bsp_gpio.h
+        - path: BSP/bsp_uart.c
+        - path: BSP/bsp_uart.h
+        - path: BSP/bsp_time.c
+        - path: BSP/bsp_time.h
+        - path: BSP/bsp_flash.c
+        - path: BSP/bsp_flash.h
+        - path: BSP/bsp_i2c.c
+        - path: BSP/bsp_i2c.h
+        - path: BSP/bsp_pwm.c
+        - path: BSP/bsp_pwm.h
+      folders: []
     - name: Start
       files:
         - path: Start/startup_stm32f10x_md.s
@@ -145,6 +167,7 @@ targets:
         - .
         - Start
         - User
+        - BSP
         - Library
         - Systerm
         - Hardware
@@ -184,6 +207,7 @@ targets:
             $outputTaskExcludes:
               - .bin
               - .s19
+            misc-controls: --callgraph
             output-format: elf
             ro-base: "0x08000000"
             rw-base: "0x20000000"
