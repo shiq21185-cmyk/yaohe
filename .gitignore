@@ -21,3 +21,7 @@
 /callgraph_stack.csv
 *.autodebug.bak
 Objects/*.Bak
+/build_log.txt
+/debug.log
+/EventRecorderStub.scvd
+/Objects/ExtDll.iex

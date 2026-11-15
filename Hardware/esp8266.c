@@ -12,6 +12,8 @@
 //板级支持包
 #include "bsp_gpio.h"
 #include "bsp_uart.h"
+#include "FreeRTOS.h"
+#include "task.h"
 
 //C库
 #include <string.h>
@@ -26,8 +28,10 @@
 #define MQTT_PWD ""
 
 
-unsigned char esp8266_buf[1280];
-unsigned short esp8266_cnt = 0, esp8266_cntPre = 0;
+/* 本工程只使用短 AT/MQTT 状态响应，不订阅大载荷；保留 256B 足够的接收空间。 */
+#define ESP8266_RX_BUF_SIZE 256U
+unsigned char esp8266_buf[ESP8266_RX_BUF_SIZE];
+volatile unsigned short esp8266_cnt = 0, esp8266_cntPre = 0;
 
 /* AT 命令组装的公用缓冲。
  * 原先 ESP_ConnectMQTT() 和 ESP_MQTTPublish() 各自在栈上开 char cmd[256]，
@@ -43,32 +47,38 @@ static char esp_cmd_buf[ESP_CMD_BUF_SIZE];
 
 void ESP8266_Clear(void)
 {
-
-	memset(esp8266_buf, 0, sizeof(esp8266_buf));
-	esp8266_cnt = 0;
-
+    uint32_t primask = __get_PRIMASK();
+    __disable_irq();
+    esp8266_cnt = 0;
+    esp8266_cntPre = 0;
+    esp8266_buf[0] = '\0';
+    __set_PRIMASK(primask);
 }
-
 
 _Bool ESP8266_WaitRecive(void)
 {
+    uint32_t primask = __get_PRIMASK();
+    unsigned short count;
+    _Bool result = REV_WAIT;
 
-	if(esp8266_cnt == 0) 							//如果接收计数为0，说明没有收到数据，直接返回等待
-		return REV_WAIT;
-
-	if(esp8266_cnt == esp8266_cntPre)				//如果与上次值相同，说明接收完成
-	{
-		esp8266_cnt = 0;							//清空接收计数
-
-		return REV_OK;								//返回接收完成标志
-	}
-
-	esp8266_cntPre = esp8266_cnt;					//设为相同
-
-	return REV_WAIT;								//返回接收未完成标志
-
+    __disable_irq();
+    count = esp8266_cnt;
+    if (count != 0)
+    {
+        if (count == esp8266_cntPre)
+        {
+            esp8266_cnt = 0;
+            esp8266_cntPre = 0;
+            result = REV_OK;
+        }
+        else
+        {
+            esp8266_cntPre = count;
+        }
+    }
+    __set_PRIMASK(primask);
+    return result;
 }
-
 
 _Bool ESP8266_SendCmd(char *cmd, char *res) //cmd为命令，res为返回关键字
 {
@@ -182,66 +192,83 @@ void ESP_ConnectMQTT(void)
     while(ESP8266_SendCmd(cmd, "OK"));
     // 连接MQTT服务器
 
-    sprintf(cmd, "AT+MQTTCONN=0,\"%s\",%d,0\r\n", MQTT_BROKER_IP, MQTT_BROKER_PORT);
+    sprintf(cmd, "AT+MQTTCONN=0,\"%s\",%d,1\r\n", MQTT_BROKER_IP, MQTT_BROKER_PORT);
     ESP8266_Clear();
 
 	while(ESP8266_SendCmd(cmd, "MQTTCONNECTED"));
 
 }
 
-// 发布MQTT消息
-void ESP_MQTTPublish(uint8_t *topic, uint8_t *data)
+// 发布 MQTT 消息。成功返回 1；失败/超时返回 0，由上层保留队列并稍后重试。
+unsigned char ESP_MQTTPublish(unsigned char *topic, unsigned char *data)
 {
     char *cmd = esp_cmd_buf;
-    uint8_t retry_count = 0;
+    uint16_t waited_ms = 0;
+    uint8_t scheduler_running;
+    uint8_t response;
+    uint32_t primask;
+    size_t topic_len;
+    size_t data_len;
 
-    // 构建发布命令
-    sprintf(cmd, "AT+MQTTPUB=0,\"%s\",\"%s\",1,0\r\n", topic, data);
+    if (topic == 0 || data == 0) return 0;
+    topic_len = strlen((const char *)topic);
+    data_len = strlen((const char *)data);
+    if (topic_len + data_len + 64U >= ESP_CMD_BUF_SIZE) return 0;
 
-    // 重试最多2次
-    while(retry_count < 2)
+    sprintf(cmd, "AT+MQTTPUB=0,\"%s\",\"%s\",1,0\r\n",
+            (const char *)topic, (const char *)data);
+    ESP8266_Clear();
+    BSP_UART_Send(BSP_UART_ESP, (const uint8_t *)cmd, (uint16_t)strlen(cmd));
+    scheduler_running = (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING) ? 1U : 0U;
+
+    while (waited_ms < 10000U)
     {
-        ESP8266_Clear();
-
-        // 发送命令
-        BSP_UART_Send(BSP_UART_ESP, (const uint8_t *)cmd, (uint16_t)strlen(cmd));
-
-        // 等待响应，超时处理
-        unsigned char timeOut = 50;  // 5秒超时
-        while(timeOut--)
+        /* RX ISR 追加数据时短暂屏蔽中断，避免扫描到半写入的字符串。 */
+        primask = __get_PRIMASK();
+        __disable_irq();
+        response = 0;
+        if (strstr((const char *)esp8266_buf, "ERROR") != 0 ||
+            strstr((const char *)esp8266_buf, "FAIL") != 0 ||
+            strstr((const char *)esp8266_buf, "ERR CODE:") != 0)
         {
-            Delay_ms(100);
+            response = 2;
+        }
+        else if (strstr((const char *)esp8266_buf, "\r\nOK\r\n") != 0 ||
+                 strncmp((const char *)esp8266_buf, "OK\r\n", 4U) == 0)
+        {
+            /* AT+MQTTPUB 字符串模式以 OK 表示本次发布命令成功。 */
+            response = 1;
+        }
+        __set_PRIMASK(primask);
 
-            if(ESP8266_WaitRecive() == REV_OK)
-            {
-                // 检测响应
-                if(strstr((const char *)esp8266_buf, "OK") != NULL)
-                {
-                    ESP8266_Clear();
-                    return;  // 成功
-                }
-                else if(strstr((const char *)esp8266_buf, "ERROR") != NULL)
-                {
-                    break;  // 发送失败
-                }
-            }
+        if (response == 1)
+        {
+            ESP8266_Clear();
+            return 1;
+        }
+        if (response == 2)
+        {
+            ESP8266_Clear();
+            return 0;
         }
 
-        retry_count++;
-        Delay_ms(500);
+        if (scheduler_running)
+            vTaskDelay(pdMS_TO_TICKS(10));
+        else
+            Delay_ms(10);
+        waited_ms += 10U;
     }
 
-    ESP8266_Clear();  // 清空缓存
+    ESP8266_Clear();
+    return 0;
 }
-
 
 void USART2_IRQHandler(void)
 {
-	int b = BSP_UART_IsrFetch(BSP_UART_ESP);   // 判标志位 + 读 DR + 清标志都在 BSP 里
-
-	if(b >= 0)
-	{
-		if(esp8266_cnt >= sizeof(esp8266_buf))	esp8266_cnt = 0; //防止缓存溢出
-		esp8266_buf[esp8266_cnt++] = (unsigned char)b;
-	}
+    int b = BSP_UART_IsrFetch(BSP_UART_ESP);
+    if (b >= 0 && esp8266_cnt < (sizeof(esp8266_buf) - 1U))
+    {
+        esp8266_buf[esp8266_cnt++] = (unsigned char)b;
+        esp8266_buf[esp8266_cnt] = '\0';
+    }
 }

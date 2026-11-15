@@ -20,7 +20,6 @@ extern unsigned int rec_data[4];
 void DH11_GPIO_Init_OUT(void);
 void DH11_GPIO_Init_IN(void);
 void DHT11_Start(void);
-char DHT11_Rec_Byte(void);
-void DHT11_REC_Data(void);
+uint8_t DHT11_REC_Data(void);
 
 #endif

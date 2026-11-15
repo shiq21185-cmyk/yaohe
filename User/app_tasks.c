@@ -112,10 +112,10 @@ volatile uint8_t g_empty_box_manual_close_pending = 0; // 空盒开盖后，等�
 volatile uint8_t display_mode = 0;
 
 // ==================== 温湿度 ====================
-float temperature = 0;
-float humidity = 0;
-float last_upload_temp = -999.0f;
-float last_upload_humid = -999.0f;
+volatile float temperature = 0;
+volatile float humidity = 0;
+volatile float last_upload_temp = -999.0f;
+volatile float last_upload_humid = -999.0f;
 uint8_t dht11_last_status = 0;
 
 // ==================== 重量 ====================
@@ -175,11 +175,38 @@ TaskHandle_t Voice_Task_Handle = NULL;
 #define TIME_TASK_DELAY_MS    370     // Time_Task中蓝牙轮询分片总周期（ms）
 #define TEMP_UPLOAD_THRESHOLD   0.2f
 #define HUMID_UPLOAD_THRESHOLD  1.0f
-#define UPLOAD_MIN_INTERVAL     500
+#define UPLOAD_RETRY_BACKOFF_MS 2000U
 
 // ==================================================
 // 上传数据相关函数
 // ==================================================
+static TickType_t s_upload_failure_tick = 0;
+static uint8_t s_upload_backoff_active = 0;
+
+static uint8_t FloatWithinThreshold(float current, float reference, float threshold)
+{
+    float difference = current - reference;
+    if (difference < 0.0f) difference = -difference;
+    return (difference < threshold) ? 1U : 0U;
+}
+
+/* MQTT 失败时保留待发标志，并退避，避免离线时每 50ms 重发一次。 */
+static uint8_t PublishOrRequeue(volatile uint8_t *trigger,
+                                uint8_t *topic, uint8_t *payload)
+{
+    if (ESP_MQTTPublish(topic, payload))
+    {
+        s_upload_backoff_active = 0;
+        return 1;
+    }
+
+    taskENTER_CRITICAL();
+    *trigger = 1;
+    taskEXIT_CRITICAL();
+    s_upload_failure_tick = xTaskGetTickCount();
+    s_upload_backoff_active = 1;
+    return 0;
+}
 
 // 检查重量变化，触发上传
 void CheckAndTriggerUpload_Weight(void)
@@ -187,16 +214,13 @@ void CheckAndTriggerUpload_Weight(void)
     static TickType_t last_upload_tick = 0;
     TickType_t now = xTaskGetTickCount();
 
-    // 防抖：同一数据最小间隔
-    if((now - last_upload_tick) < pdMS_TO_TICKS(UPLOAD_DEBOUNCE_MS))
+    if ((now - last_upload_tick) < pdMS_TO_TICKS(UPLOAD_DEBOUNCE_MS))
         return;
 
-    s32 weight_diff = abs(weight - last_upload_weight);
-
-    if(weight_diff >= WEIGHT_UPLOAD_THRESHOLD)
+    if (abs(weight - last_upload_weight) >= WEIGHT_UPLOAD_THRESHOLD)
     {
         g_upload_trigger_weight = 1;
-        g_upload_status = UPLOAD_TYPE_WEIGHT;  // 设置显示状态
+        g_upload_status = UPLOAD_TYPE_WEIGHT;
         g_upload_display_tick = now;
         last_upload_tick = now;
     }
@@ -208,29 +232,24 @@ void CheckAndTriggerUpload_Status(void)
     static TickType_t last_upload_tick = 0;
     TickType_t now = xTaskGetTickCount();
 
-    if((now - last_upload_tick) < pdMS_TO_TICKS(UPLOAD_DEBOUNCE_MS))
+    if ((now - last_upload_tick) < pdMS_TO_TICKS(UPLOAD_DEBOUNCE_MS))
         return;
 
-    // 检查盒子状态
-    if(g_box_state != g_last_box_state)
+    if (g_box_state != g_last_box_state)
     {
         g_upload_trigger_box = 1;
         g_upload_status = UPLOAD_TYPE_STATUS;
         g_upload_display_tick = now;
         g_last_box_state = g_box_state;
     }
-
-    // 检查闹钟状态
-    if(g_alarm_state != g_last_alarm_state)
+    if (g_alarm_state != g_last_alarm_state)
     {
         g_upload_trigger_alarm = 1;
         g_upload_status = UPLOAD_TYPE_STATUS;
         g_upload_display_tick = now;
         g_last_alarm_state = g_alarm_state;
     }
-
-    // 检查药盒内容状态
-    if(g_box_content_state != g_last_box_content_state)
+    if (g_box_content_state != g_last_box_content_state)
     {
         g_upload_trigger_box_content = 1;
         g_upload_status = UPLOAD_TYPE_STATUS;
@@ -241,65 +260,220 @@ void CheckAndTriggerUpload_Status(void)
     last_upload_tick = now;
 }
 
-// 执行上传，把数据发送到网络（状态、重量、温度、湿度）
+/* 读取一帧有效数据后才更新全局测量值；失败时保留旧值但不报告成功。 */
+uint8_t ReadDHT11Data(void)
+{
+    if (!DHT11_REC_Data()) return 0;
+    if (rec_data[0] > 100U || rec_data[1] > 9U ||
+        rec_data[2] > 60U || rec_data[3] > 9U)
+        return 0;
+
+    humidity = rec_data[0] + rec_data[1] * 0.1f;
+    temperature = rec_data[2] + rec_data[3] * 0.1f;
+    return 1;
+}
+
+// 温度和湿度分别判断；同一采样中两者都变化时同时进入待发队列。
+void CheckAndTriggerUpload(void)
+{
+    TickType_t now = xTaskGetTickCount();
+
+    if (fabs(temperature - last_upload_temp) >= TEMP_UPLOAD_THRESHOLD)
+    {
+        g_upload_trigger_temp = 1;
+        g_upload_status = UPLOAD_TYPE_TEMP;
+        g_upload_display_tick = now;
+    }
+    if (fabs(humidity - last_upload_humid) >= HUMID_UPLOAD_THRESHOLD)
+    {
+        g_upload_trigger_humid = 1;
+        g_upload_status = UPLOAD_TYPE_HUMID;
+        g_upload_display_tick = now;
+    }
+}
+
+// 快速上传入口也遵循“成功后更新基线，失败保留待发标志”。
+void Fast_UploadData(uint8_t type)
+{
+    char payload[32];
+    float sample;
+    volatile uint8_t *trigger;
+    uint8_t *topic;
+
+    taskENTER_CRITICAL();
+    if (type == 1)
+    {
+        sample = temperature;
+        trigger = &g_upload_trigger_temp;
+        topic = (uint8_t *)TOPIC_TEMP;
+    }
+    else
+    {
+        sample = humidity;
+        trigger = &g_upload_trigger_humid;
+        topic = (uint8_t *)TOPIC_HUMID;
+    }
+    taskEXIT_CRITICAL();
+
+    sprintf(payload, "%.1f", sample);
+    if (PublishOrRequeue(trigger, topic, (uint8_t *)payload))
+    {
+        taskENTER_CRITICAL();
+        if (type == 1)
+        {
+            last_upload_temp = sample;
+            if (FloatWithinThreshold(temperature, sample, TEMP_UPLOAD_THRESHOLD))
+                g_upload_trigger_temp = 0;
+            g_upload_status = UPLOAD_TYPE_TEMP;
+        }
+        else
+        {
+            last_upload_humid = sample;
+            if (FloatWithinThreshold(humidity, sample, HUMID_UPLOAD_THRESHOLD))
+                g_upload_trigger_humid = 0;
+            g_upload_status = UPLOAD_TYPE_HUMID;
+        }
+        g_upload_display_tick = xTaskGetTickCount();
+        taskEXIT_CRITICAL();
+    }
+}
+
+// 执行上传：先原子地取走一个待发标志，失败时恢复；成功后仅提交本次发送快照。
 void ProcessUploadQueue(void)
 {
     char payload[32];
+    uint8_t have_item;
+    uint8_t state_sample;
+    s32 weight_sample;
+    float float_sample;
+    TickType_t now = xTaskGetTickCount();
 
-    // 优先级：状态 > 重量 > 温度 > 湿度
+    if (s_upload_backoff_active &&
+        (TickType_t)(now - s_upload_failure_tick) <
+            pdMS_TO_TICKS(UPLOAD_RETRY_BACKOFF_MS))
+        return;
+    s_upload_backoff_active = 0;
 
-    // 盒子状态上传
-    if(g_upload_trigger_box)
+    have_item = 0;
+    taskENTER_CRITICAL();
+    if (g_upload_trigger_box)
     {
-        sprintf(payload, "%d", g_box_state);
-        ESP_MQTTPublish((uint8_t*)TOPIC_STATUS, (uint8_t*)payload);
+        state_sample = g_box_state;
         g_upload_trigger_box = 0;
-        return; // 每次只处理一个，避免阻塞
+        have_item = 1;
+    }
+    taskEXIT_CRITICAL();
+    if (have_item)
+    {
+        sprintf(payload, "%u", (unsigned int)state_sample);
+        (void)PublishOrRequeue(&g_upload_trigger_box, (uint8_t *)TOPIC_STATUS,
+                               (uint8_t *)payload);
+        return;
     }
 
-    // 闹钟状态上传
-    if(g_upload_trigger_alarm)
+    have_item = 0;
+    taskENTER_CRITICAL();
+    if (g_upload_trigger_alarm)
     {
-        sprintf(payload, "%d", g_alarm_state);
-        ESP_MQTTPublish((uint8_t*)TOPIC_STATUS, (uint8_t*)payload);
+        state_sample = g_alarm_state;
         g_upload_trigger_alarm = 0;
+        have_item = 1;
+    }
+    taskEXIT_CRITICAL();
+    if (have_item)
+    {
+        sprintf(payload, "%u", (unsigned int)state_sample);
+        (void)PublishOrRequeue(&g_upload_trigger_alarm, (uint8_t *)TOPIC_STATUS,
+                               (uint8_t *)payload);
         return;
     }
 
-    // 药盒内容状态上传
-    if(g_upload_trigger_box_content)
+    have_item = 0;
+    taskENTER_CRITICAL();
+    if (g_upload_trigger_box_content)
     {
-        sprintf(payload, "%d", g_box_content_state);
-        ESP_MQTTPublish((uint8_t*)TOPIC_STATUS, (uint8_t*)payload);
+        state_sample = g_box_content_state;
         g_upload_trigger_box_content = 0;
+        have_item = 1;
+    }
+    taskEXIT_CRITICAL();
+    if (have_item)
+    {
+        sprintf(payload, "%u", (unsigned int)state_sample);
+        (void)PublishOrRequeue(&g_upload_trigger_box_content, (uint8_t *)TOPIC_STATUS,
+                               (uint8_t *)payload);
         return;
     }
 
-    if(g_upload_trigger_weight)
+    have_item = 0;
+    taskENTER_CRITICAL();
+    if (g_upload_trigger_weight)
     {
-        // 内部重量单位为0.1g，上传时转换为带一位小数的克数。
-        sprintf(payload, "%d.%d", weight / 10, abs(weight % 10));
-        ESP_MQTTPublish((uint8_t*)TOPIC_WEIGHT, (uint8_t*)payload);
-        last_upload_weight = weight;
+        weight_sample = weight;
         g_upload_trigger_weight = 0;
+        have_item = 1;
+    }
+    taskEXIT_CRITICAL();
+    if (have_item)
+    {
+        sprintf(payload, "%d.%d", weight_sample / 10, abs(weight_sample % 10));
+        if (PublishOrRequeue(&g_upload_trigger_weight, (uint8_t *)TOPIC_WEIGHT,
+                             (uint8_t *)payload))
+        {
+            taskENTER_CRITICAL();
+            last_upload_weight = weight_sample;
+            if (abs(weight - weight_sample) < WEIGHT_UPLOAD_THRESHOLD)
+                g_upload_trigger_weight = 0;
+            taskEXIT_CRITICAL();
+        }
         return;
     }
 
-    if(g_upload_trigger_temp)
+    have_item = 0;
+    taskENTER_CRITICAL();
+    if (g_upload_trigger_temp)
     {
-        sprintf(payload, "%.1f", temperature);
-        ESP_MQTTPublish((uint8_t*)TOPIC_TEMP, (uint8_t*)payload);
-        last_upload_temp = temperature;
+        float_sample = temperature;
         g_upload_trigger_temp = 0;
+        have_item = 1;
+    }
+    taskEXIT_CRITICAL();
+    if (have_item)
+    {
+        sprintf(payload, "%.1f", float_sample);
+        if (PublishOrRequeue(&g_upload_trigger_temp, (uint8_t *)TOPIC_TEMP,
+                             (uint8_t *)payload))
+        {
+            taskENTER_CRITICAL();
+            last_upload_temp = float_sample;
+            if (FloatWithinThreshold(temperature, float_sample, TEMP_UPLOAD_THRESHOLD))
+                g_upload_trigger_temp = 0;
+            taskEXIT_CRITICAL();
+        }
         return;
     }
 
-    if(g_upload_trigger_humid)
+    have_item = 0;
+    taskENTER_CRITICAL();
+    if (g_upload_trigger_humid)
     {
-        sprintf(payload, "%.1f", humidity);
-        ESP_MQTTPublish((uint8_t*)TOPIC_HUMID, (uint8_t*)payload);
-        last_upload_humid = humidity;
+        float_sample = humidity;
         g_upload_trigger_humid = 0;
+        have_item = 1;
+    }
+    taskEXIT_CRITICAL();
+    if (have_item)
+    {
+        sprintf(payload, "%.1f", float_sample);
+        if (PublishOrRequeue(&g_upload_trigger_humid, (uint8_t *)TOPIC_HUMID,
+                             (uint8_t *)payload))
+        {
+            taskENTER_CRITICAL();
+            last_upload_humid = float_sample;
+            if (FloatWithinThreshold(humidity, float_sample, HUMID_UPLOAD_THRESHOLD))
+                g_upload_trigger_humid = 0;
+            taskEXIT_CRITICAL();
+        }
         return;
     }
 }
@@ -415,94 +589,6 @@ void Voice_Play_Current_Time_With_Period(void)
 
     // 播放当前时间
     Voice_Play_Current_Time();
-}
-
-// ==================================================
-// 温湿度传感器函数
-// ==================================================
-
-// 读取DHT11温湿度传感器数据
-uint8_t ReadDHT11Data(void)
-{
-    uint8_t retry = 3;
-    uint8_t success = 0;
-
-    while(retry-- > 0 && !success)
-    {
-        /* 关中断范围由 DHT11_REC_Data() 内部控制：只罩住 40 位采样窗口，
-         * 20ms 起始脉冲期间中断保持开启。 */
-        DHT11_REC_Data();
-
-        if(rec_data[0] != 0 || rec_data[2] != 0)
-        {
-            if(rec_data[0] <= 100 && rec_data[2] <= 60)
-            {
-                humidity = rec_data[0] + rec_data[1] * 0.1f;
-                temperature = rec_data[2] + rec_data[3] * 0.1f;
-                success = 1;
-            }
-        }
-
-        if(!success)
-        {
-            vTaskDelay(pdMS_TO_TICKS(20));
-        }
-    }
-
-    return success;
-}
-
-// 检查温湿度变化，触发上传
-void CheckAndTriggerUpload(void)
-{
-    static TickType_t last_upload_tick = 0;
-    TickType_t now = xTaskGetTickCount();
-
-    // 检查上传间隔
-    if((now - last_upload_tick) < pdMS_TO_TICKS(UPLOAD_MIN_INTERVAL))
-    {
-        return;
-    }
-
-    // 检查温度变化
-    if(fabs(temperature - last_upload_temp) >= TEMP_UPLOAD_THRESHOLD)
-    {
-        g_upload_trigger_temp = 1;
-        g_upload_status = UPLOAD_TYPE_TEMP;  // 设置显示状态
-        g_upload_display_tick = now;
-        last_upload_tick = now;
-    }
-    // 检查湿度变化
-    else if(fabs(humidity - last_upload_humid) >= HUMID_UPLOAD_THRESHOLD)
-    {
-        g_upload_trigger_humid = 1;
-        g_upload_status = UPLOAD_TYPE_HUMID;  // 设置显示状态
-        g_upload_display_tick = now;
-        last_upload_tick = now;
-    }
-}
-
-// 快速上传温湿度数据
-void Fast_UploadData(uint8_t type)
-{
-    char upload_payload[32];
-
-    if(type == 1)
-    {
-        sprintf(upload_payload, "%.1f", temperature);
-        ESP_MQTTPublish((uint8_t*)TOPIC_TEMP, (uint8_t*)upload_payload);
-        last_upload_temp = temperature;
-        g_upload_status = 1;
-    }
-    else
-    {
-        sprintf(upload_payload, "%.1f", humidity);
-        ESP_MQTTPublish((uint8_t*)TOPIC_HUMID, (uint8_t*)upload_payload);
-        last_upload_humid = humidity;
-        g_upload_status = 2;
-    }
-
-    g_upload_display_tick = xTaskGetTickCount();
 }
 
 // ==================================================
@@ -967,22 +1053,16 @@ void Voice_Task(void* parameter)
 void DHT11_Task(void* parameter)
 {
     TickType_t xLastWakeTime = xTaskGetTickCount();
-    const TickType_t xFrequency = pdMS_TO_TICKS(500);
+    const TickType_t xFrequency = pdMS_TO_TICKS(2500);
 
     while (1)
     {
         vTaskDelayUntil(&xLastWakeTime, xFrequency);
 
-        /* 关中断范围由 DHT11_REC_Data() 内部控制，见 Hardware/DHT11.c。 */
-        DHT11_REC_Data();
-
-        uint8_t success = 0;
-        if(rec_data[0] != 0 && rec_data[2] != 0 &&
-           rec_data[0] <= 100 && rec_data[2] <= 60)
+        /* 按 DHT11 最小采样周期读取；失败帧不会复用旧值触发上传。 */
+        uint8_t success = ReadDHT11Data();
+        if (success)
         {
-            humidity = rec_data[0] + rec_data[1] * 0.1f;
-            temperature = rec_data[2] + rec_data[3] * 0.1f;
-            success = 1;
             dht11_last_status = 1;
             CheckAndTriggerUpload();
         }

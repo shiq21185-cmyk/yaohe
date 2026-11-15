@@ -51,8 +51,8 @@ typedef enum {
 //
 // 一个仍然要记住的坑：调用图给 printf 系列标的是 "Unknown Stack Size"，
 // 走函数指针的浮点格式化（_printf_fp_dec_real 自身 104B、整条链 324B）
-// 不会被计入调用者的 Max Depth。本工程只有 ProcessUploadQueue() 用了
-// "%.1f"（见 app_tasks.c 里几处 sprintf），所以在 Upload_Task 上留了 1KB。
+// 不会被计入调用者的 Max Depth。温湿度上传使用了 "%.1f" 浮点格式化，
+// 所以在 Upload_Task 上留了 1KB。
 //
 // 上板后 vApplicationIdleHook() 会在启动 31 秒时通过串口打印各任务的实际
 // 剩余栈水位（[STACK-WATERMARK] free bytes per task:），如果某个任务 free
@@ -88,8 +88,8 @@ extern volatile uint8_t g_upload_status;
 extern volatile uint32_t g_upload_display_tick;
 extern volatile uint8_t g_need_upload;
 extern volatile uint8_t display_mode;
-extern float temperature;
-extern float humidity;
+extern volatile float temperature;
+extern volatile float humidity;
 extern s32 weight;
 extern volatile uint8_t tare_done;
 extern uint8_t dht11_last_status;

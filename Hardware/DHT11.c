@@ -1,23 +1,21 @@
 #include "stm32f10x.h"
 #include "dht11.h"
 #include "Delay.h"
+#include "bsp_time.h"
 
-/* DHT11 最近一次校验成功的湿度和温度数据。 */
+/* 最近一次通过校验的数据；通信失败时保持不变，调用方必须检查返回值。 */
 unsigned int rec_data[4] = {0};
 
-/* 将 PA5 配置为推挽输出，用于发送 DHT11 起始信号。 */
 void DH11_GPIO_Init_OUT(void)
 {
     BSP_GPIO_ConfigOutPP(DHT11_PORT, DHT11_PIN);
 }
 
-/* 将 PA5 配置为浮空输入，用于读取 DHT11 返回数据。 */
 void DH11_GPIO_Init_IN(void)
 {
     BSP_GPIO_ConfigInFloat(DHT11_PORT, DHT11_PIN);
 }
 
-/* 发送低电平起始信号，并切换为输入等待传感器响应。 */
 void DHT11_Start(void)
 {
     DH11_GPIO_Init_OUT();
@@ -30,65 +28,82 @@ void DHT11_Start(void)
     DH11_GPIO_Init_IN();
 }
 
-/* 按 DHT11 时序读取一个字节：40 us 后仍为高电平表示逻辑 1。 */
-char DHT11_Rec_Byte(void)
+/* TIM4 为 1 MHz 自由运行计数器；无符号差值可正确跨越 16 位回绕。 */
+static uint8_t DHT11_WaitLevel(uint8_t level, uint16_t timeout_us)
 {
-    unsigned char i = 0;
-    unsigned char data = 0;
+    uint16_t start = BSP_Time_GetCounter();
 
-    for(i = 0; i < 8; i++)
+    while ((uint8_t)Read_Data != level)
     {
-        while(Read_Data == 0);
-        Delay_us(40);
-        data <<= 1;
-        if(Read_Data == 1)
-        {
-            data |= 1;
-        }
-        while(Read_Data == 1);
+        if ((uint16_t)(BSP_Time_GetCounter() - start) >= timeout_us)
+            return 0;
     }
-    return data;
+    return 1;
 }
 
-/* 读取 DHT11 的 5 字节帧，并在校验和正确时更新测量结果。
- *
- * 关中断范围说明：原实现在调用方用 __disable_irq() 把整个本函数罩住，
- * 连 20ms 起始脉冲也一起关中断，导致 FreeRTOS tick 与三个串口的接收
- * 中断一次被推迟 20ms 以上（每 500ms 一次，丢事件是必然的）。
- * 现在拆成两段：
- *   - 20ms 起始脉冲 + 传感器应答沿检测：中断保持开启（这 20ms 是纯软件
- *     延时，期间没有任何需要微秒级精度的采样）；
- *   - 只有 40 位数据的采样窗口（5 字节，约 3~5ms）关中断。
- * DHT11 的采样时序仍受保护，而 tick/串口最多被推迟一个采样窗口。 */
-void DHT11_REC_Data(void)
+static uint8_t DHT11_ReadByte(uint8_t *value)
 {
-    unsigned char R_H, R_L, T_H, T_L;
-    unsigned char CHECK;
+    uint8_t i;
+    uint8_t data = 0;
+
+    for (i = 0; i < 8; i++)
+    {
+        if (!DHT11_WaitLevel(1, 100)) return 0;
+        Delay_us(40);
+        data <<= 1;
+        if ((uint8_t)Read_Data != 0) data |= 1U;
+        if (!DHT11_WaitLevel(0, 100)) return 0;
+    }
+    *value = data;
+    return 1;
+}
+
+/* 成功返回 1；超时或校验失败返回 0，绝不把旧帧报告为新帧。 */
+uint8_t DHT11_REC_Data(void)
+{
+    uint8_t frame[5];
+    uint8_t i;
+    uint32_t primask;
 
     DHT11_Start();
-    if(Read_Data == 0)
+    if (!DHT11_WaitLevel(0, 120) ||
+        !DHT11_WaitLevel(1, 120) ||
+        !DHT11_WaitLevel(0, 120))
+        goto read_failed;
+
+    /* 仅在微秒级 40 位窗口关闭中断，之后恢复原有 PRIMASK 状态。 */
+    primask = __get_PRIMASK();
+    __disable_irq();
+    for (i = 0; i < 5; i++)
     {
-        while(Read_Data == 0);
-        while(Read_Data == 1);
-
-        __disable_irq();
-        R_H = DHT11_Rec_Byte();
-        R_L = DHT11_Rec_Byte();
-        T_H = DHT11_Rec_Byte();
-        T_L = DHT11_Rec_Byte();
-        CHECK = DHT11_Rec_Byte();
-        __enable_irq();
-
-        dht11_low;
-        Delay_us(55);
-        dht11_high;
-
-        if((R_H + R_L + T_H + T_L) == CHECK)
+        if (!DHT11_ReadByte(&frame[i]))
         {
-            rec_data[0] = R_H;
-            rec_data[1] = R_L;
-            rec_data[2] = T_H;
-            rec_data[3] = T_L;
+            __set_PRIMASK(primask);
+            goto read_failed;
         }
     }
+    __set_PRIMASK(primask);
+
+    dht11_low;
+    Delay_us(55);
+    dht11_high;
+
+    /* DHT11 校验和是 8 位累加，必须按 uint8_t 回绕比较。 */
+    if ((uint8_t)(frame[0] + frame[1] + frame[2] + frame[3]) != frame[4])
+    {
+        DH11_GPIO_Init_IN();
+        return 0;
+    }
+
+    rec_data[0] = frame[0];
+    rec_data[1] = frame[1];
+    rec_data[2] = frame[2];
+    rec_data[3] = frame[3];
+    DH11_GPIO_Init_IN();
+    return 1;
+
+read_failed:
+    dht11_high;
+    DH11_GPIO_Init_IN();
+    return 0;
 }
